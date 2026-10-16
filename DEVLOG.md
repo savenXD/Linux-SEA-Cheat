@@ -223,3 +223,74 @@ To manually verify stacking dominance over real-world applications:
    - Option B: Launch Chromium/Firefox, open YouTube, and press `F` for fullscreen playback.
 3. Observe that the phoneoverlay window remains anchored and visible at the bottom-left corner over the video.
 4. Toggle visibility off and on using hotkey <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Alt</kbd>+<kbd>X</kbd>.
+
+---
+
+## Phase 3: The Input Model & Focus Invariance
+
+### Objectives Achieved
+1. **Focus Invariance Guarantee**:
+   - The overlay never steals X input focus or mutates the desktop window manager's `_NET_ACTIVE_WINDOW` state.
+   - Using `GTK_WINDOW_POPUP` (`override_redirect = True`) coupled with `gtk_window_set_accept_focus(FALSE)` and `gtk_window_set_focus_on_map(FALSE)` ensures that clicks and internal widget focus within the overlay never trigger `XSetInputFocus` to the X server. The desktop application (e.g. `xed`, `gnome-terminal`, browser) retains active input focus uninterrupted.
+2. **State Machine (`src/input.h` / `src/input.c`)**:
+   - **Typing Target**: `TYPING_TARGET_NONE` (default) vs `TYPING_TARGET_OVERLAY`.
+     - Clicking inside overlay sets `TYPING_TARGET_OVERLAY` and focuses internal test entry.
+     - Clicking outside overlay sets `TYPING_TARGET_NONE` and releases grabs.
+     - Hiding overlay automatically resets target to `NONE`.
+   - **Key Modes**:
+     - `MIRROR` (default): Keystrokes are received naturally by the focused desktop application, while XI2 raw key events are intercepted, translated via `gdk_keymap_translate_keyboard_state` / `XQueryPointer` mask, and injected into the overlay's `GtkEntry` via `gtk_widget_event`. Both receive typing simultaneously.
+     - `EXCLUSIVE`: Takes an active keyboard grab (`XGrabKeyboard` with `owner_events=False`) on the overlay window so keystrokes go strictly to the overlay entry. If grab fails (`AlreadyGrabbed`), falls back immediately to `MIRROR` with a `[!GRAB]` alert badge in the status bar.
+     - Mode toggled globally via <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Alt</kbd>+<kbd>M</kbd>.
+   - **Ghost Mode**:
+     - Click-through display-only mode implemented via X11 Shape extension:
+       - Active: `XShapeCombineRectangles(xdpy, s_xid, ShapeInput, 0, 0, NULL, 0, ShapeSet, YXBanded)`.
+       - Inactive: `XShapeCombineMask(xdpy, s_xid, ShapeInput, 0, 0, None, ShapeSet)`.
+     - Toggled globally via <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Alt</kbd>+<kbd>G</kbd>.
+   - **Pointer-Grab Fallback**:
+     - Monitored via `XI_RawButtonPress` / `XI_RawButtonRelease` on root window.
+     - When button press coordinates fall inside overlay geometry, schedules a 35ms fallback timer.
+     - If native button click arrives on overlay widget within 35ms, timer is cancelled (zero duplicate clicks).
+     - If native button click does not arrive (because an adversary holds an active pointer grab via `XGrabPointer`), fallback timer synthesizes `GdkEventButton` press/release at widget coordinates.
+   - **Safety Timers & Panic Teardown**:
+     - 60-second idle timer automatically drops typing target to `NONE` and releases exclusive keyboard grab.
+     - Panic ungrab: whenever overlay hides, exits, or receives hotkey toggle, all grabs are released first so the user's keyboard can never be trapped.
+     - Standard X11 server behavior verified under SIGKILL (-9): server automatically drops client-held grabs when socket connection closes.
+
+---
+
+### Acceptance Tests (T1 - T7) Execution & Results
+Command: `make test3` (which executes `tests/run_phase3_tests.sh`)
+
+| Test | Feature / Adversary Condition | Verification Method | Result | Notes |
+| :--- | :--- | :--- | :---: | :--- |
+| **T1** | Focus Invariance | Clicks inside overlay with `xed`, `gnome-terminal`, `chrome` focused | **PASS** | `_NET_ACTIVE_WINDOW` and `xdotool getwindowfocus` 100% unchanged |
+| **T2** | MIRROR Mode Typing | Type "hello" with target=OVERLAY | **PASS** | "hello" received by both `xed` and overlay entry simultaneously |
+| **T3** | EXCLUSIVE Mode Typing | Type "world" in EXCL, click outside, type "again" | **PASS** | "world" went only to overlay entry; "again" went only to `xed` |
+| **T4** | GHOST Mode Pass-Through | Underlying click-counter window under overlay coordinates | **PASS** | SOLID: 0 clicks passed; GHOST: click passed through; RESTORE: solid restored |
+| **T5** | Hostile Environment | Against `adv2_override` (pointer & keyboard grabs held) | **PASS** | Hotkey toggled, pointer fallback engaged, `[!GRAB]` displayed, typing received |
+| **T6** | Panic Ungrab & SIGKILL | `kill -9` while holding EXCLUSIVE grab | **PASS** | Desktop keyboard immediately operational; zero trapped grabs |
+| **T7** | Regression Check | Phase 1 (T1-T7) + Phase 2 Stacking Suites | **PASS** | Zero regressions across all stacking adversaries (100% pass) |
+
+---
+
+### User Quick-Start & Verification Instructions
+1. Start the overlay in visible mode:
+   ```bash
+   ~/phoneoverlay/bin/phoneoverlay --show
+   ```
+2. Observe the status bar badges at the top of the overlay:
+   - Mode Badge: `[MIRROR]` (blue) or `[EXCL]` (orange) or `[GHOST]` (purple).
+   - Target Badge: `○ TYPING: NONE` (gray) vs `● TYPING: OVERLAY` (green).
+   - Grab Warning: `[!GRAB]` (red) if exclusive grab failed.
+3. Interactive Keybindings:
+   - <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Alt</kbd>+<kbd>X</kbd>: Toggle visibility on/off.
+   - <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Alt</kbd>+<kbd>M</kbd>: Cycle typing mode (MIRROR <-> EXCLUSIVE).
+   - <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Alt</kbd>+<kbd>G</kbd>: Toggle click-through GHOST mode.
+4. Interactive Typing Test:
+   - Open a text editor (e.g. `xed`) or terminal.
+   - Click inside the overlay's "Type test:" entry. Notice the editor window retains full active focus and cursor.
+   - Type on your physical keyboard:
+     - In **MIRROR** mode: text appears in both your editor and the overlay entry.
+     - In **EXCLUSIVE** mode: text appears only inside the overlay entry.
+   - Click anywhere outside the overlay: typing target returns to `NONE` and keyboard input returns solely to your editor.
+

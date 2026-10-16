@@ -1,6 +1,7 @@
 #include "window.h"
 #include "hotkey.h"
 #include "raise.h"
+#include "input.h"
 #include "xutil.h"
 
 #include <gtk/gtk.h>
@@ -14,6 +15,7 @@ static gboolean on_shutdown_signal(gpointer user_data) {
     xutil_log("MAIN", "Shutdown signal received. Performing clean teardown...");
 
     overlay_hide();
+    input_cleanup();
     raise_cleanup();
     hotkey_cleanup();
     window_cleanup();
@@ -30,7 +32,7 @@ int main(int argc, char **argv) {
     setvbuf(stdout, NULL, _IOLBF, 0);
     setvbuf(stderr, NULL, _IONBF, 0);
 
-    xutil_log("MAIN", "=== Starting PhoneOverlay (Phase 2) ===");
+    xutil_log("MAIN", "=== Starting PhoneOverlay (Phase 3) ===");
 
     gboolean start_visible = FALSE;
     for (int i = 1; i < argc; i++) {
@@ -42,11 +44,23 @@ int main(int argc, char **argv) {
             int ret = system("xdotool key ctrl+shift+alt+x");
             (void)ret;
             return 0;
+        } else if (strcmp(argv[i], "--mode") == 0) {
+            xutil_log("MAIN", "Sending key mode cycle command to running instance...");
+            int ret = system("xdotool key ctrl+shift+alt+m");
+            (void)ret;
+            return 0;
+        } else if (strcmp(argv[i], "--ghost") == 0) {
+            xutil_log("MAIN", "Sending ghost toggle command to running instance...");
+            int ret = system("xdotool key ctrl+shift+alt+g");
+            (void)ret;
+            return 0;
         } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             printf("Usage: %s [OPTIONS]\n", argv[0]);
             printf("Options:\n");
             printf("  --show    Start with overlay visible (default is hidden)\n");
-            printf("  --toggle  Toggle visibility of running overlay\n");
+            printf("  --toggle  Toggle visibility of running overlay (Ctrl+Shift+Alt+X)\n");
+            printf("  --mode    Cycle typing mode MIRROR <-> EXCLUSIVE (Ctrl+Shift+Alt+M)\n");
+            printf("  --ghost   Toggle GHOST click-through mode (Ctrl+Shift+Alt+G)\n");
             printf("  --help    Show this help text\n");
             return 0;
         }
@@ -56,9 +70,10 @@ int main(int argc, char **argv) {
         printf("\n");
         printf("========================================================================\n");
         printf(" PhoneOverlay started in BACKGROUND mode (default: HIDDEN)\n");
-        printf(" - Press [Ctrl] + [Shift] + [Alt] + [X] on your keyboard to toggle.\n");
+        printf(" - Press [Ctrl] + [Shift] + [Alt] + [X] to toggle visibility.\n");
+        printf(" - Press [Ctrl] + [Shift] + [Alt] + [M] to cycle MIRROR / EXCLUSIVE.\n");
+        printf(" - Press [Ctrl] + [Shift] + [Alt] + [G] to toggle GHOST mode.\n");
         printf(" - To start visible immediately, run: %s --show\n", argv[0]);
-        printf(" - To toggle from another terminal, run: %s --toggle\n", argv[0]);
         printf(" - Press [Ctrl] + [C] to exit.\n");
         printf("========================================================================\n\n");
     }
@@ -69,16 +84,24 @@ int main(int argc, char **argv) {
     /* 2. Initialize GTK */
     gtk_init(&argc, &argv);
 
-    /* 3. Initialize Restack Watcher (dedicated Xlib Display for stacking events) */
-    if (!raise_init()) {
-        xutil_log_err("MAIN", "Failed to initialize restack watcher.");
+    /* 3. Initialize Input Subsystem */
+    if (!input_init()) {
+        xutil_log_err("MAIN", "Failed to initialize input subsystem.");
         return 1;
     }
 
-    /* 4. Initialize Window (override-redirect, RGBA visual, 360x640 at bottom-left) */
+    /* 4. Initialize Restack Watcher (dedicated Xlib Display for stacking events) */
+    if (!raise_init()) {
+        xutil_log_err("MAIN", "Failed to initialize restack watcher.");
+        input_cleanup();
+        return 1;
+    }
+
+    /* 5. Initialize Window (override-redirect, RGBA visual, 360x640 at bottom-left) */
     if (!window_init(start_visible)) {
         xutil_log_err("MAIN", "Failed to initialize overlay window.");
         raise_cleanup();
+        input_cleanup();
         return 1;
     }
 

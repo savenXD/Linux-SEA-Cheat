@@ -1,5 +1,6 @@
 #include "hotkey.h"
 #include "window.h"
+#include "input.h"
 #include "xutil.h"
 
 #include <X11/Xlib.h>
@@ -14,7 +15,11 @@ static Window     s_root = None;
 static int        s_xi_opcode = 0;
 static GSource   *s_hotkey_source = NULL;
 static gint64     s_last_toggle_time = 0;
+static gint64     s_last_mode_cycle_time = 0;
+static gint64     s_last_ghost_toggle_time = 0;
 static bool       s_x_key_down = false;
+static bool       s_m_key_down = false;
+static bool       s_g_key_down = false;
 
 /* Raw event modifier tracking for resilience against external grabs */
 static bool       s_raw_ctrl_down = false;
@@ -152,7 +157,30 @@ static void trigger_hotkey_toggle(const char *source_desc) {
 
     s_last_toggle_time = now;
     xutil_log("HOTKEY", "Ctrl+Shift+Alt+X triggered via %s -> Toggling overlay", source_desc);
+    input_release_grab();
     overlay_toggle();
+}
+
+static void trigger_mode_cycle(const char *source_desc) {
+    gint64 now = g_get_monotonic_time();
+    if (now - s_last_mode_cycle_time < 150000) {
+        xutil_log("HOTKEY", "Deduped mode cycle from %s (<150ms since last trigger)", source_desc);
+        return;
+    }
+    s_last_mode_cycle_time = now;
+    xutil_log("HOTKEY", "Ctrl+Shift+Alt+M triggered via %s -> Cycling key mode", source_desc);
+    input_cycle_key_mode();
+}
+
+static void trigger_ghost_toggle(const char *source_desc) {
+    gint64 now = g_get_monotonic_time();
+    if (now - s_last_ghost_toggle_time < 150000) {
+        xutil_log("HOTKEY", "Deduped ghost toggle from %s (<150ms since last trigger)", source_desc);
+        return;
+    }
+    s_last_ghost_toggle_time = now;
+    xutil_log("HOTKEY", "Ctrl+Shift+Alt+G triggered via %s -> Toggling ghost mode", source_desc);
+    input_toggle_ghost_mode();
 }
 
 static void handle_raw_key_press(int detail) {
@@ -169,27 +197,44 @@ static void handle_raw_key_press(int detail) {
         s_raw_alt_down = true;
     }
 
-    /* Check keycode for X (both lowercase and uppercase keysyms) */
+    /* Check keycodes for X, M, G */
     KeyCode x_kc_lower = XKeysymToKeycode(s_hotkey_dpy, XK_x);
     KeyCode x_kc_upper = XKeysymToKeycode(s_hotkey_dpy, XK_X);
+    KeyCode m_kc_lower = XKeysymToKeycode(s_hotkey_dpy, XK_m);
+    KeyCode m_kc_upper = XKeysymToKeycode(s_hotkey_dpy, XK_M);
+    KeyCode g_kc_lower = XKeysymToKeycode(s_hotkey_dpy, XK_g);
+    KeyCode g_kc_upper = XKeysymToKeycode(s_hotkey_dpy, XK_G);
+
     bool is_x = ((KeyCode)detail == x_kc_lower) || (x_kc_upper != 0 && (KeyCode)detail == x_kc_upper);
+    bool is_m = ((KeyCode)detail == m_kc_lower) || (m_kc_upper != 0 && (KeyCode)detail == m_kc_upper);
+    bool is_g = ((KeyCode)detail == g_kc_lower) || (g_kc_upper != 0 && (KeyCode)detail == g_kc_upper);
 
-    if (!is_x) {
-        return;
+    if ((is_x || is_m || is_g) && are_modifiers_physically_down(s_hotkey_dpy)) {
+        if (is_x) {
+            if (!s_x_key_down) {
+                s_x_key_down = true;
+                trigger_hotkey_toggle("XInput2 Raw Event");
+            }
+            return;
+        }
+        if (is_m) {
+            if (!s_m_key_down) {
+                s_m_key_down = true;
+                trigger_mode_cycle("XInput2 Raw Event");
+            }
+            return;
+        }
+        if (is_g) {
+            if (!s_g_key_down) {
+                s_g_key_down = true;
+                trigger_ghost_toggle("XInput2 Raw Event");
+            }
+            return;
+        }
     }
 
-    /* Only proceed if Control, Shift, and Alt are down */
-    if (!are_modifiers_physically_down(s_hotkey_dpy)) {
-        return;
-    }
-
-    if (s_x_key_down) {
-        /* Auto-repeat suppression: do not toggle again until 'x' is released */
-        return;
-    }
-    s_x_key_down = true;
-
-    trigger_hotkey_toggle("XInput2 Raw Event");
+    /* Forward non-hotkey key to input subsystem */
+    input_handle_raw_key(detail, true);
 }
 
 static void handle_raw_key_release(int detail) {
@@ -210,6 +255,21 @@ static void handle_raw_key_release(int detail) {
     if ((KeyCode)detail == x_kc_lower || (x_kc_upper != 0 && (KeyCode)detail == x_kc_upper)) {
         s_x_key_down = false;
     }
+
+    KeyCode m_kc_lower = XKeysymToKeycode(s_hotkey_dpy, XK_m);
+    KeyCode m_kc_upper = XKeysymToKeycode(s_hotkey_dpy, XK_M);
+    if ((KeyCode)detail == m_kc_lower || (m_kc_upper != 0 && (KeyCode)detail == m_kc_upper)) {
+        s_m_key_down = false;
+    }
+
+    KeyCode g_kc_lower = XKeysymToKeycode(s_hotkey_dpy, XK_g);
+    KeyCode g_kc_upper = XKeysymToKeycode(s_hotkey_dpy, XK_G);
+    if ((KeyCode)detail == g_kc_lower || (g_kc_upper != 0 && (KeyCode)detail == g_kc_upper)) {
+        s_g_key_down = false;
+    }
+
+    /* Forward key release to input subsystem */
+    input_handle_raw_key(detail, false);
 }
 
 static void register_passive_grabs(void);
@@ -230,6 +290,13 @@ static void hotkey_process_events(void) {
                 } else if (ev.xcookie.evtype == XI_RawKeyRelease) {
                     XIRawEvent *raw = (XIRawEvent *)ev.xcookie.data;
                     handle_raw_key_release(raw->detail);
+                } else if (ev.xcookie.evtype == XI_RawButtonPress || ev.xcookie.evtype == XI_RawButtonRelease) {
+                    XIRawEvent *raw = (XIRawEvent *)ev.xcookie.data;
+                    Window r_root, r_child;
+                    int rx = 0, ry = 0, wx = 0, wy = 0;
+                    unsigned int mask = 0;
+                    XQueryPointer(s_hotkey_dpy, s_root, &r_root, &r_child, &rx, &ry, &wx, &wy, &mask);
+                    input_handle_raw_button(raw->detail, (ev.xcookie.evtype == XI_RawButtonPress), rx, ry);
                 }
                 XFreeEventData(s_hotkey_dpy, &ev.xcookie);
             }
@@ -237,15 +304,35 @@ static void hotkey_process_events(void) {
             /* Fired by passive XGrabKey */
             KeyCode x_kc_lower = XKeysymToKeycode(s_hotkey_dpy, XK_x);
             KeyCode x_kc_upper = XKeysymToKeycode(s_hotkey_dpy, XK_X);
+            KeyCode m_kc_lower = XKeysymToKeycode(s_hotkey_dpy, XK_m);
+            KeyCode m_kc_upper = XKeysymToKeycode(s_hotkey_dpy, XK_M);
+            KeyCode g_kc_lower = XKeysymToKeycode(s_hotkey_dpy, XK_g);
+            KeyCode g_kc_upper = XKeysymToKeycode(s_hotkey_dpy, XK_G);
+
             if (ev.xkey.keycode == x_kc_lower || (x_kc_upper != 0 && ev.xkey.keycode == x_kc_upper)) {
                 s_x_key_down = true;
                 trigger_hotkey_toggle("Passive XGrabKey");
+            } else if (ev.xkey.keycode == m_kc_lower || (m_kc_upper != 0 && ev.xkey.keycode == m_kc_upper)) {
+                s_m_key_down = true;
+                trigger_mode_cycle("Passive XGrabKey");
+            } else if (ev.xkey.keycode == g_kc_lower || (g_kc_upper != 0 && ev.xkey.keycode == g_kc_upper)) {
+                s_g_key_down = true;
+                trigger_ghost_toggle("Passive XGrabKey");
             }
         } else if (ev.type == KeyRelease) {
             KeyCode x_kc_lower = XKeysymToKeycode(s_hotkey_dpy, XK_x);
             KeyCode x_kc_upper = XKeysymToKeycode(s_hotkey_dpy, XK_X);
+            KeyCode m_kc_lower = XKeysymToKeycode(s_hotkey_dpy, XK_m);
+            KeyCode m_kc_upper = XKeysymToKeycode(s_hotkey_dpy, XK_M);
+            KeyCode g_kc_lower = XKeysymToKeycode(s_hotkey_dpy, XK_g);
+            KeyCode g_kc_upper = XKeysymToKeycode(s_hotkey_dpy, XK_G);
+
             if (ev.xkey.keycode == x_kc_lower || (x_kc_upper != 0 && ev.xkey.keycode == x_kc_upper)) {
                 s_x_key_down = false;
+            } else if (ev.xkey.keycode == m_kc_lower || (m_kc_upper != 0 && ev.xkey.keycode == m_kc_upper)) {
+                s_m_key_down = false;
+            } else if (ev.xkey.keycode == g_kc_lower || (g_kc_upper != 0 && ev.xkey.keycode == g_kc_upper)) {
+                s_g_key_down = false;
             }
         } else if (ev.type == MappingNotify) {
             XRefreshKeyboardMapping(&ev.xmapping);
@@ -296,32 +383,35 @@ static void register_passive_grabs(void) {
     if (!s_hotkey_dpy || s_root == None) return;
 
     KeyCode x_kc = XKeysymToKeycode(s_hotkey_dpy, XK_x);
-    if (x_kc == 0) {
-        xutil_log_err("HOTKEY", "Unable to resolve keycode for XK_x!");
-        return;
-    }
+    KeyCode m_kc = XKeysymToKeycode(s_hotkey_dpy, XK_m);
+    KeyCode g_kc = XKeysymToKeycode(s_hotkey_dpy, XK_g);
 
     unsigned int base_mods = ControlMask | ShiftMask | Mod1Mask;
 
     for (size_t i = 0; i < NUM_LOCK_COMBOS; i++) {
         unsigned int mods = base_mods | s_lock_combos[i];
-        XGrabKey(s_hotkey_dpy, x_kc, mods, s_root, False, GrabModeAsync, GrabModeAsync);
+        if (x_kc) XGrabKey(s_hotkey_dpy, x_kc, mods, s_root, False, GrabModeAsync, GrabModeAsync);
+        if (m_kc) XGrabKey(s_hotkey_dpy, m_kc, mods, s_root, False, GrabModeAsync, GrabModeAsync);
+        if (g_kc) XGrabKey(s_hotkey_dpy, g_kc, mods, s_root, False, GrabModeAsync, GrabModeAsync);
     }
     XSync(s_hotkey_dpy, False);
-    xutil_log("HOTKEY", "Registered passive XGrabKey for Ctrl+Shift+Alt+X (keycode %d) across lock variations.", x_kc);
+    xutil_log("HOTKEY", "Registered passive XGrabKey for Ctrl+Shift+Alt+X/M/G across lock variations.");
 }
 
 static void unregister_passive_grabs(void) {
     if (!s_hotkey_dpy || s_root == None) return;
 
     KeyCode x_kc = XKeysymToKeycode(s_hotkey_dpy, XK_x);
-    if (x_kc == 0) return;
+    KeyCode m_kc = XKeysymToKeycode(s_hotkey_dpy, XK_m);
+    KeyCode g_kc = XKeysymToKeycode(s_hotkey_dpy, XK_g);
 
     unsigned int base_mods = ControlMask | ShiftMask | Mod1Mask;
 
     for (size_t i = 0; i < NUM_LOCK_COMBOS; i++) {
         unsigned int mods = base_mods | s_lock_combos[i];
-        XUngrabKey(s_hotkey_dpy, x_kc, mods, s_root);
+        if (x_kc) XUngrabKey(s_hotkey_dpy, x_kc, mods, s_root);
+        if (m_kc) XUngrabKey(s_hotkey_dpy, m_kc, mods, s_root);
+        if (g_kc) XUngrabKey(s_hotkey_dpy, g_kc, mods, s_root);
     }
     XFlush(s_hotkey_dpy);
     xutil_log("HOTKEY", "Released all passive XGrabKey grabs.");
@@ -356,14 +446,16 @@ gboolean hotkey_init(void) {
     }
     xutil_log("HOTKEY", "XInput2 initialized (version %d.%d, opcode %d).", major, minor, s_xi_opcode);
 
-    /* 3. Select XI_RawKeyPress and XI_RawKeyRelease on root window for XIAllMasterDevices */
+    /* 3. Select XI_RawKeyPress, XI_RawKeyRelease, XI_RawButtonPress, XI_RawButtonRelease on root window */
     XIEventMask mask;
-    unsigned char mask_bits[XIMaskLen(XI_RawKeyRelease)] = {0};
+    unsigned char mask_bits[XIMaskLen(XI_RawButtonRelease)] = {0};
     mask.deviceid = XIAllMasterDevices;
     mask.mask_len = sizeof(mask_bits);
     mask.mask = mask_bits;
     XISetMask(mask_bits, XI_RawKeyPress);
     XISetMask(mask_bits, XI_RawKeyRelease);
+    XISetMask(mask_bits, XI_RawButtonPress);
+    XISetMask(mask_bits, XI_RawButtonRelease);
 
     if (XISelectEvents(s_hotkey_dpy, s_root, &mask, 1) != Success) {
         xutil_log_err("HOTKEY", "Failed to select XI2 raw events on root window!");
@@ -372,7 +464,7 @@ gboolean hotkey_init(void) {
         return FALSE;
     }
     XSync(s_hotkey_dpy, False);
-    xutil_log("HOTKEY", "Selected XI_RawKeyPress and XI_RawKeyRelease on root window.");
+    xutil_log("HOTKEY", "Selected XI_RawKeyPress/Release and XI_RawButtonPress/Release on root window.");
 
     /* 4. Register passive XGrabKey on root window */
     register_passive_grabs();
