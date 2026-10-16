@@ -16,6 +16,11 @@ static GSource   *s_hotkey_source = NULL;
 static gint64     s_last_toggle_time = 0;
 static bool       s_x_key_down = false;
 
+/* Raw event modifier tracking for resilience against external grabs */
+static bool       s_raw_ctrl_down = false;
+static bool       s_raw_shift_down = false;
+static bool       s_raw_alt_down = false;
+
 static const unsigned int s_lock_combos[] = {
     0,
     Mod2Mask,                /* NumLock */
@@ -26,27 +31,113 @@ static const unsigned int s_lock_combos[] = {
 
 static inline bool is_keycode_down(const char keys[32], KeyCode kc) {
     if (kc == 0) return false;
-    return (keys[kc / 8] & (1 << (kc % 8))) != 0;
+    return (((unsigned char)keys[kc / 8]) & (1 << (kc % 8))) != 0;
+}
+
+static bool is_ctrl_keycode(Display *dpy, KeyCode kc) {
+    if (kc == 0) return false;
+    if (kc == XKeysymToKeycode(dpy, XK_Control_L) ||
+        kc == XKeysymToKeycode(dpy, XK_Control_R)) {
+        return true;
+    }
+    XModifierKeymap *modmap = XGetModifierMapping(dpy);
+    if (modmap) {
+        for (int i = 0; i < modmap->max_keypermod; i++) {
+            if (modmap->modifiermap[ControlMapIndex * modmap->max_keypermod + i] == kc) {
+                XFreeModifiermap(modmap);
+                return true;
+            }
+        }
+        XFreeModifiermap(modmap);
+    }
+    return false;
+}
+
+static bool is_shift_keycode(Display *dpy, KeyCode kc) {
+    if (kc == 0) return false;
+    if (kc == XKeysymToKeycode(dpy, XK_Shift_L) ||
+        kc == XKeysymToKeycode(dpy, XK_Shift_R)) {
+        return true;
+    }
+    XModifierKeymap *modmap = XGetModifierMapping(dpy);
+    if (modmap) {
+        for (int i = 0; i < modmap->max_keypermod; i++) {
+            if (modmap->modifiermap[ShiftMapIndex * modmap->max_keypermod + i] == kc) {
+                XFreeModifiermap(modmap);
+                return true;
+            }
+        }
+        XFreeModifiermap(modmap);
+    }
+    return false;
+}
+
+static bool is_alt_keycode(Display *dpy, KeyCode kc) {
+    if (kc == 0) return false;
+    if (kc == XKeysymToKeycode(dpy, XK_Alt_L) ||
+        kc == XKeysymToKeycode(dpy, XK_Alt_R) ||
+        kc == XKeysymToKeycode(dpy, XK_Meta_L) ||
+        kc == XKeysymToKeycode(dpy, XK_Meta_R) ||
+        kc == XKeysymToKeycode(dpy, XK_ISO_Level3_Shift)) {
+        return true;
+    }
+    XModifierKeymap *modmap = XGetModifierMapping(dpy);
+    if (modmap) {
+        for (int i = 0; i < modmap->max_keypermod; i++) {
+            if (modmap->modifiermap[Mod1MapIndex * modmap->max_keypermod + i] == kc) {
+                XFreeModifiermap(modmap);
+                return true;
+            }
+        }
+        XFreeModifiermap(modmap);
+    }
+    return false;
 }
 
 static bool are_modifiers_physically_down(Display *dpy) {
     char keys[32];
     XQueryKeymap(dpy, keys);
 
-    KeyCode ctrl_l = XKeysymToKeycode(dpy, XK_Control_L);
-    KeyCode ctrl_r = XKeysymToKeycode(dpy, XK_Control_R);
-    bool ctrl_down = is_keycode_down(keys, ctrl_l) || is_keycode_down(keys, ctrl_r);
+    bool ctrl_down = false;
+    bool shift_down = false;
+    bool alt_down = false;
 
-    KeyCode shift_l = XKeysymToKeycode(dpy, XK_Shift_L);
-    KeyCode shift_r = XKeysymToKeycode(dpy, XK_Shift_R);
-    bool shift_down = is_keycode_down(keys, shift_l) || is_keycode_down(keys, shift_r);
+    /* 1. Check via full XModifierKeymap */
+    XModifierKeymap *modmap = XGetModifierMapping(dpy);
+    if (modmap) {
+        for (int i = 0; i < modmap->max_keypermod; i++) {
+            KeyCode kc_ctrl = modmap->modifiermap[ControlMapIndex * modmap->max_keypermod + i];
+            if (is_keycode_down(keys, kc_ctrl)) ctrl_down = true;
 
-    KeyCode alt_l = XKeysymToKeycode(dpy, XK_Alt_L);
-    KeyCode alt_r = XKeysymToKeycode(dpy, XK_Alt_R);
-    KeyCode meta_l = XKeysymToKeycode(dpy, XK_Meta_L);
-    KeyCode meta_r = XKeysymToKeycode(dpy, XK_Meta_R);
-    bool alt_down = is_keycode_down(keys, alt_l) || is_keycode_down(keys, alt_r) ||
-                    is_keycode_down(keys, meta_l) || is_keycode_down(keys, meta_r);
+            KeyCode kc_shift = modmap->modifiermap[ShiftMapIndex * modmap->max_keypermod + i];
+            if (is_keycode_down(keys, kc_shift)) shift_down = true;
+
+            KeyCode kc_alt = modmap->modifiermap[Mod1MapIndex * modmap->max_keypermod + i];
+            if (is_keycode_down(keys, kc_alt)) alt_down = true;
+        }
+        XFreeModifiermap(modmap);
+    }
+
+    /* 2. Direct keysym lookup fallbacks */
+    if (!ctrl_down) {
+        ctrl_down = is_keycode_down(keys, XKeysymToKeycode(dpy, XK_Control_L)) ||
+                    is_keycode_down(keys, XKeysymToKeycode(dpy, XK_Control_R));
+    }
+    if (!shift_down) {
+        shift_down = is_keycode_down(keys, XKeysymToKeycode(dpy, XK_Shift_L)) ||
+                     is_keycode_down(keys, XKeysymToKeycode(dpy, XK_Shift_R));
+    }
+    if (!alt_down) {
+        alt_down = is_keycode_down(keys, XKeysymToKeycode(dpy, XK_Alt_L)) ||
+                   is_keycode_down(keys, XKeysymToKeycode(dpy, XK_Alt_R)) ||
+                   is_keycode_down(keys, XKeysymToKeycode(dpy, XK_Meta_L)) ||
+                   is_keycode_down(keys, XKeysymToKeycode(dpy, XK_Meta_R));
+    }
+
+    /* 3. Combined check with internal raw event tracker */
+    if (!ctrl_down && s_raw_ctrl_down) ctrl_down = true;
+    if (!shift_down && s_raw_shift_down) shift_down = true;
+    if (!alt_down && s_raw_alt_down) alt_down = true;
 
     return (ctrl_down && shift_down && alt_down);
 }
@@ -67,9 +158,28 @@ static void trigger_hotkey_toggle(const char *source_desc) {
 static void handle_raw_key_press(int detail) {
     if (!s_hotkey_dpy) return;
 
-    /* Recompute keycode for XK_x each time to handle layout changes dynamically */
-    KeyCode x_kc = XKeysymToKeycode(s_hotkey_dpy, XK_x);
-    if ((KeyCode)detail != x_kc) {
+    /* Track raw modifier keys */
+    if (is_ctrl_keycode(s_hotkey_dpy, (KeyCode)detail)) {
+        s_raw_ctrl_down = true;
+    }
+    if (is_shift_keycode(s_hotkey_dpy, (KeyCode)detail)) {
+        s_raw_shift_down = true;
+    }
+    if (is_alt_keycode(s_hotkey_dpy, (KeyCode)detail)) {
+        s_raw_alt_down = true;
+    }
+
+    /* Check keycode for X (both lowercase and uppercase keysyms) */
+    KeyCode x_kc_lower = XKeysymToKeycode(s_hotkey_dpy, XK_x);
+    KeyCode x_kc_upper = XKeysymToKeycode(s_hotkey_dpy, XK_X);
+    bool is_x = ((KeyCode)detail == x_kc_lower) || (x_kc_upper != 0 && (KeyCode)detail == x_kc_upper);
+
+    if (!is_x) {
+        return;
+    }
+
+    /* Only proceed if Control, Shift, and Alt are down */
+    if (!are_modifiers_physically_down(s_hotkey_dpy)) {
         return;
     }
 
@@ -79,20 +189,31 @@ static void handle_raw_key_press(int detail) {
     }
     s_x_key_down = true;
 
-    /* Verify that Control, Shift, and Alt are physically down right now */
-    if (are_modifiers_physically_down(s_hotkey_dpy)) {
-        trigger_hotkey_toggle("XInput2 Raw Event");
-    }
+    trigger_hotkey_toggle("XInput2 Raw Event");
 }
 
 static void handle_raw_key_release(int detail) {
     if (!s_hotkey_dpy) return;
 
-    KeyCode x_kc = XKeysymToKeycode(s_hotkey_dpy, XK_x);
-    if ((KeyCode)detail == x_kc) {
+    if (is_ctrl_keycode(s_hotkey_dpy, (KeyCode)detail)) {
+        s_raw_ctrl_down = false;
+    }
+    if (is_shift_keycode(s_hotkey_dpy, (KeyCode)detail)) {
+        s_raw_shift_down = false;
+    }
+    if (is_alt_keycode(s_hotkey_dpy, (KeyCode)detail)) {
+        s_raw_alt_down = false;
+    }
+
+    KeyCode x_kc_lower = XKeysymToKeycode(s_hotkey_dpy, XK_x);
+    KeyCode x_kc_upper = XKeysymToKeycode(s_hotkey_dpy, XK_X);
+    if ((KeyCode)detail == x_kc_lower || (x_kc_upper != 0 && (KeyCode)detail == x_kc_upper)) {
         s_x_key_down = false;
     }
 }
+
+static void register_passive_grabs(void);
+static void unregister_passive_grabs(void);
 
 static void hotkey_process_events(void) {
     if (!s_hotkey_dpy) return;
@@ -114,23 +235,28 @@ static void hotkey_process_events(void) {
             }
         } else if (ev.type == KeyPress) {
             /* Fired by passive XGrabKey */
-            KeyCode x_kc = XKeysymToKeycode(s_hotkey_dpy, XK_x);
-            if (ev.xkey.keycode == x_kc) {
+            KeyCode x_kc_lower = XKeysymToKeycode(s_hotkey_dpy, XK_x);
+            KeyCode x_kc_upper = XKeysymToKeycode(s_hotkey_dpy, XK_X);
+            if (ev.xkey.keycode == x_kc_lower || (x_kc_upper != 0 && ev.xkey.keycode == x_kc_upper)) {
+                s_x_key_down = true;
                 trigger_hotkey_toggle("Passive XGrabKey");
             }
         } else if (ev.type == KeyRelease) {
-            KeyCode x_kc = XKeysymToKeycode(s_hotkey_dpy, XK_x);
-            if (ev.xkey.keycode == x_kc) {
+            KeyCode x_kc_lower = XKeysymToKeycode(s_hotkey_dpy, XK_x);
+            KeyCode x_kc_upper = XKeysymToKeycode(s_hotkey_dpy, XK_X);
+            if (ev.xkey.keycode == x_kc_lower || (x_kc_upper != 0 && ev.xkey.keycode == x_kc_upper)) {
                 s_x_key_down = false;
             }
         } else if (ev.type == MappingNotify) {
             XRefreshKeyboardMapping(&ev.xmapping);
-            xutil_log("HOTKEY", "Keyboard mapping updated.");
+            xutil_log("HOTKEY", "Keyboard mapping updated by server. Re-registering grabs.");
+            unregister_passive_grabs();
+            register_passive_grabs();
         }
     }
 }
 
-/* Custom GSource to integrate secondary Display FD into GLib */
+/* Custom GSource to integrate secondary Display socket FD into GLib */
 typedef struct {
     GSource     source;
     Display    *dpy;
@@ -182,7 +308,7 @@ static void register_passive_grabs(void) {
         XGrabKey(s_hotkey_dpy, x_kc, mods, s_root, False, GrabModeAsync, GrabModeAsync);
     }
     XSync(s_hotkey_dpy, False);
-    xutil_log("HOTKEY", "Registered passive XGrabKey for Ctrl+Shift+Alt+X (keycode %d) with 4 lock mask variations.", x_kc);
+    xutil_log("HOTKEY", "Registered passive XGrabKey for Ctrl+Shift+Alt+X (keycode %d) across lock variations.", x_kc);
 }
 
 static void unregister_passive_grabs(void) {

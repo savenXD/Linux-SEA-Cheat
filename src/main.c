@@ -35,17 +35,30 @@ int main(int argc, char **argv) {
         if (strcmp(argv[i], "--show") == 0) {
             start_visible = TRUE;
             xutil_log("MAIN", "Flag --show specified: Starting overlay in visible state.");
+        } else if (strcmp(argv[i], "--toggle") == 0) {
+            xutil_log("MAIN", "Sending toggle command to running instance...");
+            int ret = system("xdotool key ctrl+shift+alt+x");
+            (void)ret;
+            return 0;
         } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             printf("Usage: %s [OPTIONS]\n", argv[0]);
             printf("Options:\n");
             printf("  --show    Start with overlay visible (default is hidden)\n");
+            printf("  --toggle  Toggle visibility of running overlay\n");
             printf("  --help    Show this help text\n");
             return 0;
         }
     }
 
     if (!start_visible) {
-        xutil_log("MAIN", "Default mode: Starting hidden (Press Ctrl+Shift+Alt+X to toggle).");
+        printf("\n");
+        printf("========================================================================\n");
+        printf(" PhoneOverlay started in BACKGROUND mode (default: HIDDEN)\n");
+        printf(" - Press [Ctrl] + [Shift] + [Alt] + [X] on your keyboard to toggle.\n");
+        printf(" - To start visible immediately, run: %s --show\n", argv[0]);
+        printf(" - To toggle from another terminal, run: %s --toggle\n", argv[0]);
+        printf(" - Press [Ctrl] + [C] to exit.\n");
+        printf("========================================================================\n\n");
     }
 
     /* 1. Install non-fatal X error handlers */
