@@ -1,68 +1,81 @@
-#include "overlay.h"
+#include "window.h"
+#include "hotkey.h"
+#include "xutil.h"
+
+#include <gtk/gtk.h>
+#include <glib-unix.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <signal.h>
-#include <unistd.h>
+#include <string.h>
 
-static OverlayApp g_app;
+static gboolean on_shutdown_signal(gpointer user_data) {
+    (void)user_data;
+    xutil_log("MAIN", "Shutdown signal received. Performing clean teardown...");
 
-static void signal_handler(int sig) {
-    printf("\n[Signal] Caught signal %d. Shutting down cleanly...\n", sig);
+    overlay_hide();
+    hotkey_cleanup();
+    window_cleanup();
+
     if (gtk_main_level() > 0) {
         gtk_main_quit();
     }
-}
-
-static void setup_signals(void) {
-    struct sigaction sa;
-    memset(&sa, 0, sizeof(sa));
-    sa.sa_handler = signal_handler;
-    sigemptyset(&sa.sa_mask);
-    sa.sa_flags = 0;
-
-    sigaction(SIGINT, &sa, NULL);
-    sigaction(SIGTERM, &sa, NULL);
-    sigaction(SIGHUP, &sa, NULL);
+    xutil_log("MAIN", "Clean exit completed.");
+    return G_SOURCE_REMOVE;
 }
 
 int main(int argc, char **argv) {
-    /* Ensure immediate flushing of stdout/stderr even when redirected to file/pipe */
+    /* Line-buffered stdout/stderr for immediate log visibility */
     setvbuf(stdout, NULL, _IOLBF, 0);
     setvbuf(stderr, NULL, _IONBF, 0);
 
-    printf("===========================================\n");
-    printf(" Starting PhoneOverlay (Phase 1: Foundation)\n");
-    printf("===========================================\n");
+    xutil_log("MAIN", "=== Starting PhoneOverlay (Phase 1) ===");
 
-    /* Install robust X error handlers early */
-    x11_install_error_handlers();
-    setup_signals();
+    gboolean start_visible = FALSE;
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "--show") == 0) {
+            start_visible = TRUE;
+            xutil_log("MAIN", "Flag --show specified: Starting overlay in visible state.");
+        } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
+            printf("Usage: %s [OPTIONS]\n", argv[0]);
+            printf("Options:\n");
+            printf("  --show    Start with overlay visible (default is hidden)\n");
+            printf("  --help    Show this help text\n");
+            return 0;
+        }
+    }
 
-    /* Initialize GTK */
+    if (!start_visible) {
+        xutil_log("MAIN", "Default mode: Starting hidden (Press Ctrl+Shift+Alt+X to toggle).");
+    }
+
+    /* 1. Install non-fatal X error handlers */
+    xutil_install_error_handlers();
+
+    /* 2. Initialize GTK */
     gtk_init(&argc, &argv);
 
-    /* Initialize X11 dominance module with separate Display connection */
-    memset(&g_app, 0, sizeof(g_app));
-    if (!x11_dom_init(&g_app)) {
-        fprintf(stderr, "[Fatal] Failed to initialize X11 dominance module.\n");
+    /* 3. Initialize Window (override-redirect, RGBA visual, 360x640 at bottom-left) */
+    if (!window_init(start_visible)) {
+        xutil_log_err("MAIN", "Failed to initialize overlay window.");
         return 1;
     }
 
-    /* Create the override-redirect phone-styled overlay */
-    ui_create_window(&g_app);
-
-    /* Attach the dedicated X11 connection & heartbeat to the GLib main loop */
-    x11_dom_attach_glib(&g_app);
-
-    printf("[Main] Overlay active. Running GLib main loop...\n");
-    gtk_main();
-
-    printf("[Main] Cleaning up resources...\n");
-    x11_dom_cleanup(&g_app);
-    if (g_app.window) {
-        gtk_widget_destroy(g_app.window);
+    /* 4. Initialize Global Hotkey System (dedicated Xlib Display, XI2 raw events + passive grab) */
+    if (!hotkey_init()) {
+        xutil_log_err("MAIN", "Failed to initialize global hotkey system.");
+        window_cleanup();
+        return 1;
     }
 
-    printf("[Main] Exited cleanly.\n");
+    /* 5. Setup lifecycle signal handling for SIGINT and SIGTERM via GLib */
+    g_unix_signal_add(SIGINT, on_shutdown_signal, NULL);
+    g_unix_signal_add(SIGTERM, on_shutdown_signal, NULL);
+    xutil_log("MAIN", "Installed SIGINT/SIGTERM handlers via g_unix_signal_add.");
+
+    /* 6. Run GLib main loop */
+    xutil_log("MAIN", "Entering main loop.");
+    gtk_main();
+
+    xutil_log("MAIN", "Exited main loop cleanly.");
     return 0;
 }
