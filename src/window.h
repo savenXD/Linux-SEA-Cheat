@@ -16,6 +16,7 @@ void window_cleanup(void);
 void overlay_show(void);
 void overlay_hide(void);
 void overlay_toggle(void);
+void overlay_reposition(void);
 Window overlay_get_xid(void);
 gboolean overlay_is_visible(void);
 

@@ -1,5 +1,6 @@
 #include "window.h"
 #include "hotkey.h"
+#include "raise.h"
 #include "xutil.h"
 
 #include <gtk/gtk.h>
@@ -13,6 +14,7 @@ static gboolean on_shutdown_signal(gpointer user_data) {
     xutil_log("MAIN", "Shutdown signal received. Performing clean teardown...");
 
     overlay_hide();
+    raise_cleanup();
     hotkey_cleanup();
     window_cleanup();
 
@@ -28,7 +30,7 @@ int main(int argc, char **argv) {
     setvbuf(stdout, NULL, _IOLBF, 0);
     setvbuf(stderr, NULL, _IONBF, 0);
 
-    xutil_log("MAIN", "=== Starting PhoneOverlay (Phase 1) ===");
+    xutil_log("MAIN", "=== Starting PhoneOverlay (Phase 2) ===");
 
     gboolean start_visible = FALSE;
     for (int i = 1; i < argc; i++) {
@@ -67,20 +69,28 @@ int main(int argc, char **argv) {
     /* 2. Initialize GTK */
     gtk_init(&argc, &argv);
 
-    /* 3. Initialize Window (override-redirect, RGBA visual, 360x640 at bottom-left) */
-    if (!window_init(start_visible)) {
-        xutil_log_err("MAIN", "Failed to initialize overlay window.");
+    /* 3. Initialize Restack Watcher (dedicated Xlib Display for stacking events) */
+    if (!raise_init()) {
+        xutil_log_err("MAIN", "Failed to initialize restack watcher.");
         return 1;
     }
 
-    /* 4. Initialize Global Hotkey System (dedicated Xlib Display, XI2 raw events + passive grab) */
+    /* 4. Initialize Window (override-redirect, RGBA visual, 360x640 at bottom-left) */
+    if (!window_init(start_visible)) {
+        xutil_log_err("MAIN", "Failed to initialize overlay window.");
+        raise_cleanup();
+        return 1;
+    }
+
+    /* 5. Initialize Global Hotkey System (dedicated Xlib Display, XI2 raw events + passive grab) */
     if (!hotkey_init()) {
         xutil_log_err("MAIN", "Failed to initialize global hotkey system.");
         window_cleanup();
+        raise_cleanup();
         return 1;
     }
 
-    /* 5. Setup lifecycle signal handling for SIGINT and SIGTERM via GLib */
+    /* 6. Setup lifecycle signal handling for SIGINT and SIGTERM via GLib */
     g_unix_signal_add(SIGINT, on_shutdown_signal, NULL);
     g_unix_signal_add(SIGTERM, on_shutdown_signal, NULL);
     xutil_log("MAIN", "Installed SIGINT/SIGTERM handlers via g_unix_signal_add.");

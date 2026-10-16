@@ -4,22 +4,38 @@ INCLUDES = $(shell pkg-config --cflags gtk+-3.0 x11 xi xext xrandr)
 LIBS = $(shell pkg-config --libs gtk+-3.0 x11 xi xext xrandr) -lm
 
 TARGET = bin/phoneoverlay
-SRCS = src/main.c src/window.c src/hotkey.c src/xutil.c
+SRCS = src/main.c src/window.c src/hotkey.c src/raise.c src/xutil.c
 OBJS = $(SRCS:.c=.o)
+
+ADVERSARIES = tests/stackcheck tests/adversary/adv1_ewmh tests/adversary/adv2_override tests/adversary/adv3_focuslock
 
 all: $(TARGET)
 
 $(TARGET): $(OBJS) | bin
 	$(CC) $(OBJS) $(LIBS) -o $(TARGET)
 
-src/%.o: src/%.c src/window.h src/hotkey.h src/xutil.h
+src/%.o: src/%.c src/window.h src/hotkey.h src/raise.h src/xutil.h
 	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
 
 bin:
 	mkdir -p bin
 
+adversaries: $(ADVERSARIES)
+
+tests/stackcheck: tests/stackcheck.c
+	$(CC) $(CFLAGS) $< -lX11 -o $@
+
+tests/adversary/adv1_ewmh: tests/adversary/adv1_ewmh.c
+	$(CC) $(CFLAGS) $< -lX11 -o $@
+
+tests/adversary/adv2_override: tests/adversary/adv2_override.c
+	$(CC) $(CFLAGS) $< -lX11 -o $@
+
+tests/adversary/adv3_focuslock: tests/adversary/adv3_focuslock.c
+	$(CC) $(CFLAGS) $< -lX11 -o $@
+
 clean:
-	rm -rf bin $(OBJS) /tmp/phoneoverlay*.log
+	rm -rf bin $(OBJS) $(ADVERSARIES) /tmp/phoneoverlay*.log
 
 run: $(TARGET)
 	./$(TARGET)
@@ -27,4 +43,7 @@ run: $(TARGET)
 test: $(TARGET)
 	@bash tests/acceptance_phase1.sh
 
-.PHONY: all clean run test
+test2: $(TARGET) adversaries
+	@bash tests/run_adversaries.sh
+
+.PHONY: all clean run test test2 adversaries

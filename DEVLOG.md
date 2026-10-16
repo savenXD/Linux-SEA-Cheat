@@ -121,4 +121,105 @@ Command: `make test` (which executes `tests/acceptance_phase1.sh`)
 
 ### Known Limitations
 - Window content is currently a Cairo phone mock with live clock (WebKitGTK mobile browser will be integrated in Phase 4).
-- Input is not yet captured or forwarded into overlay widgets (Mirror Mode and Exclusive Mode are scheduled for Phase 2 / Phase 3).
+- Input is not yet captured or forwarded into overlay widgets (Mirror Mode and Exclusive Mode are scheduled for Phase 3).
+
+---
+
+## Phase 2 of 4: Dominance Engine & Adversary Stacking Resistance
+- **Status**: Completed & Verified
+- **Git Tag**: `phase2`
+
+### Step 1: Muffin Unredirect & Compositor Investigation
+- **Settings Check**:
+  - `gsettings get org.cinnamon.muffin unredirect-fullscreen-windows` reports: `false`.
+  - Muffin maintains compositing even when windows enter fullscreen state (`_NET_WM_STATE_FULLSCREEN`).
+  - Screen 0 compositor selection owner `_NET_WM_CM_S0` remains active (Window `0x2600011`).
+- **Atoms Supported**:
+  - Root property `_NET_SUPPORTED` includes `_NET_WM_BYPASS_COMPOSITOR`.
+  - Override-redirect windows (`GTK_WINDOW_POPUP`) are not managed by Muffin; they are composited by the X Composite overlay layer in natural X11 stacking order (`XQueryTree`).
+  - Because fullscreen unredirection is disabled in Muffin, fullscreen applications (e.g. VLC, OpenGL games, video players) do not bypass the compositor. The overlay window stacked at the top of the root window tree remains visible over fullscreen applications.
+
+---
+
+### Step 2: Restack Watcher Architecture (`src/raise.c` & `src/raise.h`)
+- **Dedicated Display Connection**:
+  - Opened dedicated secondary `Display*` connection (`s_raise_dpy = XOpenDisplay(NULL)`) separate from GTK and hotkey connections.
+- **Event Selection**:
+  - Subscribed to `SubstructureNotifyMask` on the root window (shared, non-conflicting with WM's `SubstructureRedirectMask`).
+  - Subscribed to `RRScreenChangeNotifyMask` via XRandR extension to dynamically reposition and re-assert geometry on display resolution or orientation changes.
+- **GLib Event Loop Integration**:
+  - Implemented custom `GSource` polling `ConnectionNumber(s_raise_dpy)`.
+  - Drains all buffered X events when the socket FD becomes readable.
+  - If any dirty event (`ConfigureNotify`, `CirculateNotify`, `MapNotify`, `CreateNotify`, `ReparentNotify`, `RRScreenChangeNotify`) is detected, invokes `check_and_raise()`.
+- **Safety Watchdog & Active-Only Lifecycle**:
+  - Added a 100ms safety watchdog timer (`on_watchdog_tick`) in case any X event is dropped.
+  - The watcher runs **strictly when the overlay is visible**:
+    - `overlay_show()` calls `raise_start()`, which attaches the FD source, drains stale events, and starts the watchdog.
+    - `overlay_hide()` calls `raise_stop()`, which destroys the GSource and detaches all timers, resulting in strictly **0.0% CPU** and zero event processing while hidden.
+
+---
+
+### Step 3: Self-Defense Engine & Loop Guard
+- **Token Bucket Rate Limiting**:
+  - Protects against restack ping-pong storms between competing windows.
+  - Threshold parameters:
+    - Sustained Rate: `TOKEN_RATE = 300.0` raises/second.
+    - Burst Allowance: `TOKEN_BURST = 60.0` raises.
+    - Cooldown Period: `COOLDOWN_MS = 50` ms (`COOLDOWN_USEC = 50000` us).
+- **Loop Guard Engagement**:
+  - If rate limit / burst is exceeded, the loop guard trips, enters 50ms cooldown, and schedules `on_cooldown_expired`.
+  - Logs a warning with complete metadata of the offending topmost window:
+    - Window XID
+    - Window title (`_NET_WM_NAME` / `WM_NAME`)
+    - Window class (`WM_CLASS` res_name and res_class)
+    - Override-redirect flag (`attr.override_redirect`)
+    - Geometry (`attr.width`, `attr.height`, `attr.x`, `attr.y`)
+  - Warning logs are throttled to at most once per second to avoid console spam.
+  - Offending window metadata format example:
+    ```
+    [LOOP_GUARD ERROR] Raise limit exceeded (burst/rate saturated). Entering 50ms cooldown.
+    [LOOP_GUARD] Offending window: XID=0x5600001, Name='Adversary 2: Override-Redirect Aggressive Raise', WM_CLASS='none'/'none', OverrideRedirect=YES, Geom=1920x1080+0+0
+    ```
+
+---
+
+### Step 4: Adversary Test Harness
+Created 4 hostile test programs and an automated stacking verification tool:
+1. `tests/adversary/adv1_ewmh.c`:
+   - Managed fullscreen window setting `_NET_WM_STATE_FULLSCREEN`, `_NET_WM_STATE_ABOVE`, `_NET_WM_STATE_STICKY`, and continuously asserting `_NET_ACTIVE_WINDOW`.
+2. `tests/adversary/adv2_override.c`:
+   - Hostile override-redirect window that executes an initial high-frequency storm burst (120 raises at 0.5ms intervals) to challenge the loop guard, followed by an aggressive raise every 20ms and on every root `ConfigureNotify`. Grabs keyboard and pointer. Clean signal handling and alarm ensures grabs are ungrabbed on exit.
+3. `tests/adversary/adv3_focuslock.c`:
+   - Focus-stealing window calling `XSetInputFocus` every 50ms and calling `XLowerWindow` on all top-level application windows (`_NET_CLIENT_LIST`).
+4. `tests/adversary/adv4_video.sh`:
+   - Fullscreen 3D OpenGL application (`glxgears -fullscreen`) rendering continuously at display refresh rate.
+5. `tests/stackcheck.c`:
+   - Precision X11 stacking inspector. Supports one-shot mode (`./tests/stackcheck <xid>`) and continuous monitor mode (`./tests/stackcheck --monitor <xid> <duration> <interval_ms> [pid] [min_percent] [max_cpu]`) sampling `/proc/<pid>/stat` for CPU usage.
+
+---
+
+### Acceptance Tests (T1 - T4) Execution & Results
+Command: `make test2` (which executes `tests/run_adversaries.sh`)
+
+| Test | Adversary / Condition | Duration | Total Samples | Topmost Samples | Topmost % | Overlay CPU | Loop Guard Status | Result |
+| :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **T1.1** | `adv1_ewmh` (Fullscreen + Above) | 30.02s | 598 | 598 | **100.00%** | 0.20% | Idle (Normal raise) | **PASS** |
+| **T1.2** | `adv3_focuslock` (Focuslock + Lower) | 30.01s | 598 | 598 | **100.00%** | 0.17% | Idle (Normal raise) | **PASS** |
+| **T1.3** | `adv4_video` (`glxgears -fullscreen`) | 30.05s | 599 | 599 | **100.00%** | 0.10% | Idle (Normal raise) | **PASS** |
+| **T2** | `adv2_override` (Hostile Override Storm) | 30.05s | 599 | 596 | **99.50%** | 1.03% | **Engaged & Throttled** | **PASS** |
+| **T3** | Hidden Mode (Zero CPU, Inactive Watcher) | 5.00s | 5 | N/A (Hidden) | N/A | **0.00%** | Detached / Inactive | **PASS** |
+| **T4** | Phase 1 Regression Suite (T1 - T7) | ~15s | Full Suite | All passed | 100% | 0.00% | Zero regressions | **PASS** |
+
+---
+
+### Step 5: Visual Check Instructions (T5)
+To manually verify stacking dominance over real-world applications:
+1. Start the overlay in visible mode:
+   ```bash
+   ~/phoneoverlay/bin/phoneoverlay --show
+   ```
+2. Open a video in fullscreen:
+   - Option A: Launch VLC with any video file in fullscreen: `vlc --fullscreen <video.mp4>`.
+   - Option B: Launch Chromium/Firefox, open YouTube, and press `F` for fullscreen playback.
+3. Observe that the phoneoverlay window remains anchored and visible at the bottom-left corner over the video.
+4. Toggle visibility off and on using hotkey <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Alt</kbd>+<kbd>X</kbd>.

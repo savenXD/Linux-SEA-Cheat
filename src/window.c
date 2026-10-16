@@ -1,4 +1,5 @@
 #include "window.h"
+#include "raise.h"
 #include "xutil.h"
 #include <gdk/gdkx.h>
 #include <cairo.h>
@@ -184,6 +185,12 @@ gboolean window_init(gboolean start_visible) {
         XFree(hints);
     }
 
+    Atom net_wm_name = XInternAtom(xdpy, "_NET_WM_NAME", False);
+    Atom utf8_string = XInternAtom(xdpy, "UTF8_STRING", False);
+    XChangeProperty(xdpy, s_xid, net_wm_name, utf8_string, 8, PropModeReplace,
+                    (unsigned char *)"PhoneOverlay", 12);
+    XStoreName(xdpy, s_xid, "PhoneOverlay");
+
     xutil_log("WINDOW", "Created override-redirect overlay XID 0x%lx (%lu)",
               (unsigned long)s_xid, (unsigned long)s_xid);
 
@@ -215,14 +222,34 @@ void overlay_show(void) {
     if (s_drawing_area) {
         gtk_widget_queue_draw(s_drawing_area);
     }
+
+    /* Start the aggressive restack watcher only while visible */
+    raise_start();
 }
 
 void overlay_hide(void) {
     if (!s_window) return;
 
+    /* Stop restack watcher immediately to ensure zero CPU while hidden */
+    raise_stop();
+
     gtk_widget_hide(s_window);
     s_visible = FALSE;
     xutil_log("WINDOW", "Overlay hidden");
+}
+
+void overlay_reposition(void) {
+    if (!s_window || s_xid == None) return;
+
+    calculate_primary_monitor_position();
+    Display *xdpy = gdk_x11_display_get_xdisplay(gdk_display_get_default());
+    XMoveResizeWindow(xdpy, s_xid, s_pos_x, s_pos_y, OVERLAY_WIDTH, OVERLAY_HEIGHT);
+    XFlush(xdpy);
+
+    if (s_drawing_area) {
+        gtk_widget_queue_draw(s_drawing_area);
+    }
+    xutil_log("WINDOW", "Overlay repositioned to (%d, %d)", s_pos_x, s_pos_y);
 }
 
 void overlay_toggle(void) {
