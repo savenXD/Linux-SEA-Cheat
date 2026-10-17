@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+set -u
+
+DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/phoneoverlay"
+CRASH_LOG="$DATA_DIR/crash.log"
+BIN_PATH="${HOME}/.local/bin/phoneoverlay"
+
+# Fallback to local build if not yet installed in ~/.local/bin
+if [ ! -x "$BIN_PATH" ]; then
+    DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+    BIN_PATH="$DIR/bin/phoneoverlay"
+fi
+
+mkdir -p "$DATA_DIR"
+
+CHILD_PID=""
+
+cleanup() {
+    if [ -n "$CHILD_PID" ] && kill -0 "$CHILD_PID" 2>/dev/null; then
+        kill -TERM "$CHILD_PID" 2>/dev/null || true
+        wait "$CHILD_PID" 2>/dev/null || true
+    fi
+    exit 0
+}
+
+trap cleanup SIGINT SIGTERM SIGHUP
+
+while true; do
+    "$BIN_PATH" "$@" &
+    CHILD_PID=$!
+    wait "$CHILD_PID"
+    EXIT_CODE=$?
+
+    # Normal clean exit (code 0 or terminated by signal 15 / SIGTERM)
+    if [ $EXIT_CODE -eq 0 ] || [ $EXIT_CODE -eq 143 ]; then
+        break
+    fi
+
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] PhoneOverlay crashed/exited with code $EXIT_CODE. Restarting in 2s..." >> "$CRASH_LOG"
+    sleep 2
+done

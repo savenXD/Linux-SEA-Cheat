@@ -10,22 +10,57 @@
 #define OVERLAY_MARGIN       12
 #define PHONE_CORNER_RADIUS  28.0
 
-gboolean window_init(gboolean start_visible);
-void window_cleanup(void);
+typedef enum {
+    CLIPBOARD_ACTION_SELECT_ALL,
+    CLIPBOARD_ACTION_COPY,
+    CLIPBOARD_ACTION_PASTE,
+    CLIPBOARD_ACTION_CUT
+} ClipboardAction;
 
-void overlay_show(void);
-void overlay_hide(void);
-void overlay_toggle(void);
-void overlay_reposition(void);
-Window overlay_get_xid(void);
-gboolean overlay_is_visible(void);
+gboolean    window_init(gboolean start_visible);
+void        window_cleanup(void);
 
-void overlay_get_geometry(int *x, int *y, int *w, int *h);
-void overlay_queue_draw(void);
-void overlay_set_ghost(gboolean ghost);
-GtkWidget *overlay_get_entry_widget(void);
+void        overlay_show(void);
+void        overlay_hide(void);
+void        overlay_toggle(void);
+void        overlay_reposition(void);
+Window      overlay_get_xid(void);
+gboolean    overlay_is_visible(void);
+
+void        overlay_get_geometry(int *x, int *y, int *w, int *h);
+void        overlay_queue_draw(void);
+void        overlay_set_ghost(gboolean ghost);
+void        overlay_apply_config(void);
+
+#include "ghost.h"
+
+void        overlay_switch_app(const char *app_name);
+const char *overlay_get_current_app(void);
+void        overlay_go_home(void);
+void        overlay_back(void);
+void        overlay_reload(void);
+void        overlay_snap(void);
+void        overlay_capture_begin(void);
+void        overlay_capture_end(void);
+void        overlay_set_ghost_button_state(GhostButtonState state);
+void        overlay_show_toast(const char *msg);
+
+GtkWidget  *overlay_get_window_widget(void);
+GtkWidget  *overlay_get_entry_widget(void);
+GtkWidget  *overlay_get_test_entry(void);
+GtkWidget  *overlay_get_url_entry(void);
+
+const char *overlay_get_test_entry_text(void);
 const char *overlay_get_entry_text(void);
-void overlay_clear_entry_text(void);
-void overlay_set_entry_text(const char *text);
+void        overlay_clear_entry_text(void);
+void        overlay_set_entry_text(const char *text);
+
+void        overlay_execute_clipboard_action(ClipboardAction action);
+void        overlay_show_popup_modal(GtkWidget *popup_view);
+void        overlay_close_popup_modal(void);
+gboolean    overlay_has_popup_modal(void);
+GtkWidget  *overlay_get_popup_child_view(void);
+
+void        overlay_update_status_ui(void);
 
 #endif /* WINDOW_H */

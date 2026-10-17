@@ -1,5 +1,9 @@
 #include "input.h"
 #include "window.h"
+#include "browser.h"
+#include "hotkey.h"
+#include "config.h"
+#include "ghost.h"
 #include "xutil.h"
 
 #include <gdk/gdk.h>
@@ -45,7 +49,7 @@ gboolean input_init(void) {
 
 static gboolean on_idle_timeout(gpointer user_data) {
     (void)user_data;
-    xutil_log("INPUT", "60-second idle timeout expired. Releasing typing target and exclusive grab.");
+    xutil_log("INPUT", "60-second idle timeout expired. Releasing typing target and grabs.");
     s_idle_timer_id = 0;
     input_set_typing_target(TYPING_TARGET_NONE);
     return G_SOURCE_REMOVE;
@@ -97,15 +101,25 @@ void input_set_typing_target(TypingTarget target) {
     xutil_log("INPUT", "Typing target set to: %s", target == TYPING_TARGET_OVERLAY ? "OVERLAY" : "NONE");
 
     if (target == TYPING_TARGET_OVERLAY) {
+        const AppConfig *cfg = config_get();
+        if (cfg && cfg->shield_clipboard_keys) {
+            hotkey_install_clipboard_shield();
+        }
         if (s_key_mode == KEY_MODE_EXCLUSIVE) {
             acquire_exclusive_grab();
         }
         restart_idle_timer();
-        GtkWidget *entry = overlay_get_entry_widget();
-        if (entry) {
-            gtk_widget_grab_focus(entry);
+
+        GtkWidget *win = overlay_get_window_widget();
+        GtkWidget *cur = win ? gtk_window_get_focus(GTK_WINDOW(win)) : NULL;
+        if (!cur) {
+            GtkWidget *test_entry = overlay_get_test_entry();
+            if (test_entry) {
+                gtk_widget_grab_focus(test_entry);
+            }
         }
     } else {
+        hotkey_remove_clipboard_shield();
         if (s_grab_status == GRAB_STATUS_ACTIVE) {
             release_exclusive_grab();
         }
@@ -207,6 +221,7 @@ void input_notify_native_click(GdkEventButton *event) {
 }
 
 void input_notify_overlay_hidden(void) {
+    hotkey_remove_clipboard_shield();
     input_set_typing_target(TYPING_TARGET_NONE);
     release_exclusive_grab();
 }
@@ -225,41 +240,86 @@ static gboolean on_pointer_fallback_check(gpointer user_data) {
         int rel_x = s_pending_fallback_root_x - ox;
         int rel_y = s_pending_fallback_root_y - oy;
 
-        GtkWidget *entry = overlay_get_entry_widget();
-        if (entry && gtk_widget_get_window(entry)) {
+        GtkWidget *target_widget = NULL;
+        int target_x = rel_x;
+        int target_y = rel_y;
+
+        const char *curr_app = overlay_get_current_app();
+        bool is_chatgpt = (curr_app && g_ascii_strcasecmp(curr_app, "chatgpt") == 0);
+
+        if (overlay_has_popup_modal()) {
+            if (rel_y < 65) {
+                target_widget = overlay_get_window_widget();
+            } else {
+                target_widget = overlay_get_popup_child_view();
+                target_y = rel_y - 65;
+            }
+        } else if (rel_y >= oh - 80 && rel_y <= oh - 40) {
+            /* Test input entry area */
+            target_widget = overlay_get_test_entry();
+            target_y = rel_y - (oh - 80);
+        } else if (rel_y > oh - 40) {
+            /* Bottom controls */
+            target_widget = overlay_get_window_widget();
+        } else if (is_chatgpt) {
+            if (rel_y < 28) {
+                /* Top status bar */
+                target_widget = overlay_get_window_widget();
+            } else {
+                /* ChatGPT center viewport (starts immediately under status bar) */
+                target_widget = GTK_WIDGET(browser_get_active_view());
+                target_y = rel_y - 28;
+            }
+        } else if (rel_y < 70) {
+            /* Top area: URL entry if in browser */
+            target_widget = overlay_get_url_entry();
+            if (!target_widget || !gtk_widget_is_visible(target_widget)) {
+                target_widget = overlay_get_test_entry();
+            }
+            target_y = (rel_y > 28) ? (rel_y - 28) : rel_y;
+        } else {
+            /* Center viewport */
+            target_widget = GTK_WIDGET(browser_get_active_view());
+            target_y = rel_y - 70;
+        }
+
+        if (target_widget && gtk_widget_get_window(target_widget)) {
             GdkDisplay *display = gdk_display_get_default();
             GdkSeat *seat = gdk_display_get_default_seat(display);
             GdkDevice *pointer = gdk_seat_get_pointer(seat);
+            guint32 ev_time = (guint32)(g_get_monotonic_time() / 1000);
 
             GdkEvent *ev_press = gdk_event_new(GDK_BUTTON_PRESS);
-            ev_press->button.window = g_object_ref(gtk_widget_get_window(entry));
+            ev_press->button.window = g_object_ref(gtk_widget_get_window(target_widget));
             ev_press->button.send_event = FALSE;
-            ev_press->button.time = GDK_CURRENT_TIME;
-            ev_press->button.x = rel_x;
-            ev_press->button.y = rel_y;
+            ev_press->button.time = ev_time;
+            ev_press->button.x = target_x;
+            ev_press->button.y = target_y;
             ev_press->button.x_root = s_pending_fallback_root_x;
             ev_press->button.y_root = s_pending_fallback_root_y;
             ev_press->button.button = s_pending_fallback_button;
             ev_press->button.state = GDK_BUTTON1_MASK;
             gdk_event_set_device(ev_press, pointer);
 
-            gtk_widget_event(entry, ev_press);
+            gtk_widget_event(target_widget, ev_press);
             gdk_event_free(ev_press);
 
             GdkEvent *ev_rel = gdk_event_new(GDK_BUTTON_RELEASE);
-            ev_rel->button.window = g_object_ref(gtk_widget_get_window(entry));
+            ev_rel->button.window = g_object_ref(gtk_widget_get_window(target_widget));
             ev_rel->button.send_event = FALSE;
-            ev_rel->button.time = GDK_CURRENT_TIME;
-            ev_rel->button.x = rel_x;
-            ev_rel->button.y = rel_y;
+            ev_rel->button.time = ev_time;
+            ev_rel->button.x = target_x;
+            ev_rel->button.y = target_y;
             ev_rel->button.x_root = s_pending_fallback_root_x;
             ev_rel->button.y_root = s_pending_fallback_root_y;
             ev_rel->button.button = s_pending_fallback_button;
             ev_rel->button.state = 0;
             gdk_event_set_device(ev_rel, pointer);
 
-            gtk_widget_event(entry, ev_rel);
+            gtk_widget_event(target_widget, ev_rel);
             gdk_event_free(ev_rel);
+
+            gtk_widget_grab_focus(target_widget);
         }
 
         input_set_typing_target(TYPING_TARGET_OVERLAY);
@@ -277,26 +337,25 @@ void input_handle_raw_button(int button, bool is_press, int root_x, int root_y) 
 
     if (is_inside) {
         if (s_ghost_mode == GHOST_MODE_ON) {
-            /* Ghost mode: let click pass through without intercepting */
             return;
         }
 
         if (is_press) {
-            s_pending_fallback_button = button;
-            s_pending_fallback_root_x = root_x;
-            s_pending_fallback_root_y = root_y;
+            if (button >= 1 && button <= 3) {
+                s_pending_fallback_button = button;
+                s_pending_fallback_root_x = root_x;
+                s_pending_fallback_root_y = root_y;
 
-            /* Schedule fallback check: if native click doesn't arrive within 35ms, synthesize */
-            if (s_fallback_timer_id == 0) {
-                s_fallback_timer_id = g_timeout_add(POINTER_FALLBACK_MS, on_pointer_fallback_check, NULL);
+                if (s_fallback_timer_id == 0) {
+                    s_fallback_timer_id = g_timeout_add(POINTER_FALLBACK_MS, on_pointer_fallback_check, NULL);
+                }
             }
 
             input_set_typing_target(TYPING_TARGET_OVERLAY);
             restart_idle_timer();
         }
     } else {
-        /* Click outside overlay */
-        if (is_press) {
+        if (is_press && button >= 1 && button <= 3) {
             input_set_typing_target(TYPING_TARGET_NONE);
         }
     }
@@ -323,6 +382,8 @@ static GdkModifierType get_current_modifiers(void) {
 }
 
 void input_handle_raw_key(int keycode, bool is_press) {
+    if (ghost_is_guard_active()) return;
+
     /* If typing target is not overlay, keys go only to the focused desktop app */
     if (s_typing_target != TYPING_TARGET_OVERLAY) {
         return;
@@ -330,9 +391,25 @@ void input_handle_raw_key(int keycode, bool is_press) {
 
     restart_idle_timer();
 
-    /* Synthesize GdkEventKey into test entry */
-    GtkWidget *entry = overlay_get_entry_widget();
-    if (!entry || !gtk_widget_get_window(entry)) {
+    /* Find target widget: check focused widget in overlay window */
+    GtkWidget *target = NULL;
+    GtkWidget *win = overlay_get_window_widget();
+    if (win) {
+        GtkWidget *f = gtk_window_get_focus(GTK_WINDOW(win));
+        if (f && (GTK_IS_EDITABLE(f) || WEBKIT_IS_WEB_VIEW(f))) {
+            target = f;
+        }
+    }
+    if (!target) {
+        target = overlay_get_test_entry();
+    }
+    if (!target) {
+        target = overlay_get_entry_widget();
+    }
+    if (!target || !gtk_widget_get_window(target)) {
+        target = GTK_WIDGET(browser_get_active_view());
+    }
+    if (!target || !gtk_widget_get_window(target)) {
         return;
     }
 
@@ -345,7 +422,7 @@ void input_handle_raw_key(int keycode, bool is_press) {
 
     if (keyval == 0) return;
 
-    /* Don't send solitary modifier key releases to entry */
+    /* Don't send solitary modifier key releases to entry/browser */
     if (keyval == GDK_KEY_Control_L || keyval == GDK_KEY_Control_R ||
         keyval == GDK_KEY_Shift_L   || keyval == GDK_KEY_Shift_R ||
         keyval == GDK_KEY_Alt_L     || keyval == GDK_KEY_Alt_R ||
@@ -367,11 +444,12 @@ void input_handle_raw_key(int keycode, bool is_press) {
 
     GdkSeat *seat = gdk_display_get_default_seat(display);
     GdkDevice *keyboard = gdk_seat_get_keyboard(seat);
+    guint32 ev_time = (guint32)(g_get_monotonic_time() / 1000);
 
     GdkEvent *ev = gdk_event_new(is_press ? GDK_KEY_PRESS : GDK_KEY_RELEASE);
-    ev->key.window = g_object_ref(gtk_widget_get_window(entry));
+    ev->key.window = g_object_ref(gtk_widget_get_window(target));
     ev->key.send_event = FALSE;
-    ev->key.time = GDK_CURRENT_TIME;
+    ev->key.time = ev_time;
     ev->key.state = state;
     ev->key.keyval = keyval;
     ev->key.hardware_keycode = keycode;
@@ -379,8 +457,10 @@ void input_handle_raw_key(int keycode, bool is_press) {
     ev->key.string = g_strdup(str);
     gdk_event_set_device(ev, keyboard);
 
-    gtk_widget_event(entry, ev);
+    gtk_widget_event(target, ev);
     gdk_event_free(ev);
+
+    overlay_update_status_ui();
 }
 
 void input_cleanup(void) {
@@ -392,6 +472,7 @@ void input_cleanup(void) {
         g_source_remove(s_idle_timer_id);
         s_idle_timer_id = 0;
     }
+    hotkey_remove_clipboard_shield();
     release_exclusive_grab();
     xutil_log("INPUT", "Input subsystem cleaned up.");
 }

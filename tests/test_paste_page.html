@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Test Paste Page</title>
+  <style>
+    body {
+      background: #12131c;
+      color: #f1f5f9;
+      font-family: sans-serif;
+      padding: 16px;
+    }
+    #editor {
+      min-height: 200px;
+      border: 2px dashed #38bdf8;
+      border-radius: 8px;
+      padding: 12px;
+      background: #1e2234;
+      outline: none;
+    }
+    #editor:focus {
+      border-color: #0ea5e9;
+      box-shadow: 0 0 8px rgba(56, 189, 248, 0.4);
+    }
+    #status {
+      margin-top: 12px;
+      font-weight: bold;
+      color: #22c55e;
+    }
+    img {
+      max-width: 100%;
+      height: auto;
+      border-radius: 4px;
+      margin-top: 8px;
+    }
+  </style>
+</head>
+<body>
+  <h3>PhoneOverlay Paste Test Target</h3>
+  <div id="editor" contenteditable="true" autofocus>
+    <p>Paste image or text here...</p>
+  </div>
+  <div id="status">WAITING</div>
+
+  <script>
+    window.addEventListener('DOMContentLoaded', () => {
+      const editor = document.getElementById('editor');
+      editor.focus();
+    });
+
+    window.addEventListener('paste', function(e) {
+      const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+      let handled = false;
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+          const blob = items[i].getAsFile();
+          const reader = new FileReader();
+          reader.onload = function(event) {
+            const img = document.createElement('img');
+            img.src = event.target.result;
+            img.id = 'pasted-image';
+            document.getElementById('editor').appendChild(img);
+            document.getElementById('status').innerText = 'IMAGE_PASTED_SUCCESS';
+            document.title = 'PASTE_SUCCESS';
+          };
+          reader.readAsDataURL(blob);
+          handled = true;
+          e.preventDefault();
+          break;
+        }
+      }
+      if (!handled) {
+        document.getElementById('status').innerText = 'TEXT_PASTED';
+      }
+    });
+  </script>
+</body>
+</html>

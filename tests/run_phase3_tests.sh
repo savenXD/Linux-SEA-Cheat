@@ -13,6 +13,7 @@ echo -e "${BLUE}========================================================${NC}"
 
 # Clean any existing overlay instances
 killall -9 phoneoverlay 2>/dev/null || true
+make adversaries > /dev/null 2>&1 || true
 sleep 0.5
 
 get_overlay_xid() {
@@ -42,7 +43,7 @@ XED_PRE_ACTIVE=$(xprop -root _NET_ACTIVE_WINDOW | awk '{print $NF}')
 XED_PRE_FOCUS=$(xdotool getwindowfocus)
 
 # Click overlay entry
-xdotool mousemove 100 870 click 1
+xdotool mousemove 100 470 click 1
 sleep 0.5
 
 XED_POST_ACTIVE=$(xprop -root _NET_ACTIVE_WINDOW | awk '{print $NF}')
@@ -68,7 +69,7 @@ if [ -n "$TERM_XID" ]; then
     xdotool windowactivate --sync "$TERM_XID"
     sleep 0.5
     TERM_PRE_ACTIVE=$(xprop -root _NET_ACTIVE_WINDOW | awk '{print $NF}')
-    xdotool mousemove 100 870 click 1
+    xdotool mousemove 100 470 click 1
     sleep 0.5
     TERM_POST_ACTIVE=$(xprop -root _NET_ACTIVE_WINDOW | awk '{print $NF}')
     if [ "$TERM_PRE_ACTIVE" = "$TERM_POST_ACTIVE" ]; then
@@ -102,8 +103,10 @@ xdotool windowactivate --sync "$XED_XID"
 sleep 0.5
 
 # Click inside overlay to set typing target to OVERLAY
-xdotool mousemove 100 870 click 1
+xdotool mousemove 100 470 click 1
 sleep 0.5
+xdotool key ctrl+a BackSpace
+sleep 0.2
 
 STATE=$(xprop -id "$OVERLAY_XID" _PHONEOVERLAY_STATE)
 echo "  State: $STATE"
@@ -154,8 +157,10 @@ xdotool key ctrl+shift+alt+m
 sleep 0.5
 
 # Target overlay
-xdotool mousemove 100 870 click 1
+xdotool mousemove 100 470 click 1
 sleep 0.5
+xdotool key ctrl+a BackSpace
+sleep 0.2
 
 STATE=$(xprop -id "$OVERLAY_XID" _PHONEOVERLAY_STATE)
 echo "  State during exclusive typing: $STATE"
@@ -236,21 +241,21 @@ sleep 1
 OVERLAY_XID=$(get_overlay_xid)
 
 # 1. Solid mode: click overlay
-xdotool mousemove 100 870 click 1
+xdotool mousemove 100 470 click 1
 sleep 0.5
 SOLID_CLICKS=$(cat /tmp/p3_under_clicks.txt 2>/dev/null || echo "0")
 
 # 2. Toggle GHOST mode on
 xdotool key ctrl+shift+alt+g
 sleep 0.5
-xdotool mousemove 100 870 click 1
+xdotool mousemove 100 470 click 1
 sleep 0.5
 GHOST_CLICKS=$(cat /tmp/p3_under_clicks.txt 2>/dev/null || echo "0")
 
 # 3. Toggle GHOST mode off (restore SOLID)
 xdotool key ctrl+shift+alt+g
 sleep 0.5
-xdotool mousemove 100 870 click 1
+xdotool mousemove 100 470 click 1
 sleep 0.5
 RESTORED_CLICKS=$(cat /tmp/p3_under_clicks.txt 2>/dev/null || echo "0")
 
@@ -288,7 +293,7 @@ sleep 0.8
 VIS_SHOW=$(python3 -c "import subprocess; out = subprocess.check_output(['xwininfo', '-id', '$OVERLAY_XID']).decode(); print('IsViewable' in out)")
 
 # Click overlay under pointer grab (fallback engages)
-xdotool mousemove 100 870 click 1
+xdotool mousemove 100 470 click 1
 sleep 0.5
 
 # Request EXCLUSIVE mode under keyboard grab (fails cleanly to MIRROR with [!GRAB])
@@ -298,6 +303,8 @@ STATE_ADV2=$(xprop -id "$OVERLAY_XID" _PHONEOVERLAY_STATE)
 echo "  Overlay State under adversary: $STATE_ADV2"
 
 # Type
+xdotool key ctrl+a BackSpace
+sleep 0.2
 xdotool type "adv2ok"
 sleep 0.5
 ENTRY_TEXT=$(xprop -id "$OVERLAY_XID" _PHONEOVERLAY_ENTRY_TEXT | awk -F'"' '{print $2}')
@@ -329,7 +336,7 @@ OVERLAY_XID=$(get_overlay_xid)
 # Acquire exclusive grab
 xdotool key ctrl+shift+alt+m
 sleep 0.5
-xdotool mousemove 100 870 click 1
+xdotool mousemove 100 470 click 1
 sleep 0.5
 
 STATE=$(xprop -id "$OVERLAY_XID" _PHONEOVERLAY_STATE)

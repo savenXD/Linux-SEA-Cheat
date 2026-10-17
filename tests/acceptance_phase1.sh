@@ -10,7 +10,7 @@ echo "========================================================"
 
 echo "--- T1: Warning-free Build Check ---"
 make clean
-BUILD_OUT=$(make 2>&1)
+BUILD_OUT=$(make all adversaries 2>&1)
 echo "$BUILD_OUT"
 if echo "$BUILD_OUT" | grep -i "warning:"; then
     echo "T1 FAILED: Compiler warnings detected!"

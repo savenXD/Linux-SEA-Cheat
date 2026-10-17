@@ -294,3 +294,166 @@ Command: `make test3` (which executes `tests/run_phase3_tests.sh`)
      - In **EXCLUSIVE** mode: text appears only inside the overlay entry.
    - Click anywhere outside the overlay: typing target returns to `NONE` and keyboard input returns solely to your editor.
 
+---
+---
+
+# Phase 4 Devlog: Embedded WebKitGTK Mobile Browser & Complete Phone Shell
+
+**Date:** 2026-10-17  
+**Status:** COMPLETE (All Phase 1, Phase 2, Phase 3, and Phase 4 tests passing 100%)
+
+---
+
+### Phase 4 Architectural Accomplishments
+
+1. **Embedded WebKitGTK 4.1 Subsystem (`src/browser.c`, `src/browser.h`)**:
+   - Integrated `webkit2gtk-4.1` (v2.52.6).
+   - Configured persistent session storage under `~/.local/share/phoneoverlay`:
+     - Base data directory: `~/.local/share/phoneoverlay/data`
+     - Base cache directory: `~/.local/share/phoneoverlay/cache`
+     - Persistent cookie storage: `~/.local/share/phoneoverlay/cookies.txt` with `WEBKIT_COOKIE_POLICY_ACCEPT_ALWAYS`.
+   - Set Mobile User-Agent (`Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36`) to enforce mobile responsive layouts.
+   - Verified clean rendering inside RGBA override-redirect popup on the system's Mesa Intel UHD Graphics (Compositor: Cinnamon Muffin) with zero blank/black screen defects.
+   - Implemented resource conservation: automatic audio/video mute (`webkit_web_view_set_is_muted(TRUE)`) upon hiding the overlay, and unmute on show.
+
+2. **Full Phone UI & Modern GTK CSS (`src/window.c`, `src/window.h`)**:
+   - Constructed the complete phone container hierarchy:
+     - Outer frame: Dark phone body (`#12131c`), 28px rounded corners, 2px subtle border (`#3c425c`), and alpha-0 transparent clear for anti-aliased outer corners.
+     - **Status Bar**: Real-time clock (`HH:MM`) ticking every 1s, glyphs (`📶 100% ⚡`), interactive mode badge (`[MIRROR]` cyan, `[EXCL]` orange, `[GHOST]` purple), typing target indicator (`● OVERLAY` / `○ NONE`), and `[!GRAB]` adversary alert.
+     - **Header Box**: Mobile-styled URL/search bar (`GtkEntry`) with placeholder and search template resolution; 2px cyan loading progress bar directly beneath the URL entry.
+     - **Center Viewport**: Embedded `WebKitWebView` filling available viewport height (`360x640 - chrome`).
+     - **Bottom Navigation Bar**: Back (`←`), Forward (`→`), Reload/Stop (`⟳`/`✕`), Home (`⌂`), and 110x4px home gesture pill.
+   - Preserved `GTK_WINDOW_POPUP` (`override_redirect = True`) and strict non-focus stealing policy (`gtk_window_set_accept_focus(FALSE)`).
+
+3. **Input Model Integration with WebKit**:
+   - Keystroke synthesis in `MIRROR` mode:
+     - Dispatches `GdkEventKey` to the focused internal widget (`gtk_window_get_focus(s_window)`), dynamically selecting between `s_url_entry` and `browser_get_widget()`.
+     - Uses monotonically advancing timestamps (`(guint32)(g_get_monotonic_time() / 1000)`), ensuring WebKit does not drop consecutive keystrokes.
+   - In `EXCLUSIVE` mode:
+     - `XGrabKeyboard` routes keystrokes exclusively into the active widget.
+   - Pointer-grab fallback:
+     - Detects relative coordinates and dispatches synthetic button clicks to the URL bar, WebKit view, or navigation buttons under foreign pointer grabs.
+
+4. **Configuration Engine (`src/config.c`, `src/config.h`)**:
+   - Manages `~/.config/phoneoverlay/config.ini` via `GKeyFile`.
+   - Settings supported: `width`, `height`, `margin`, `corner` (`bottom-left`, `bottom-right`, `top-left`, `top-right`), `monitor` (`primary` or index), `opacity`, `start_visible`, `default_key_mode`, `home_url`, `search_url_template`, `user_agent`, `toggle_key`, `mode_key`, `ghost_key`.
+   - Dynamic `SIGHUP` reload: dynamically repositions the window, updates opacity, and re-registers passive hotkey grabs without restarting the process.
+
+5. **Single-Instance Unix Domain Socket IPC (`src/main.c`)**:
+   - Socket at `~/.local/share/phoneoverlay/ipc.sock`.
+   - CLI commands supported:
+     - `phoneoverlay --toggle`: toggles overlay visibility.
+     - `phoneoverlay --show`: shows overlay.
+     - `phoneoverlay --hide`: hides overlay.
+     - `phoneoverlay --mode [mirror|exclusive]`: sets or cycles input mode.
+     - `phoneoverlay --ghost [on|off]`: toggles click-through mode.
+     - `phoneoverlay --load <url>`: loads URL in browser.
+     - `phoneoverlay --reload-config`: reloads `config.ini` dynamically.
+     - `phoneoverlay --status`: queries current runtime state string.
+
+6. **Crash Supervisor & Desktop Autostart (`scripts/phoneoverlay-supervisor`, `phoneoverlay.desktop`)**:
+   - `scripts/phoneoverlay-supervisor`: monitors child process, logs abnormal crashes to `~/.local/share/phoneoverlay/crash.log`, and restarts after 2s delay. Clean exits (SIGTERM/SIGINT) terminate cleanly without restart.
+   - `phoneoverlay.desktop`: standard XDG autostart file for Cinnamon.
+   - `make install` and `make uninstall` targets in Makefile.
+
+---
+
+### Test Verification Matrix (Phases 1 - 4)
+
+| Suite | Scope / Tests | Result | Notes |
+| :--- | :--- | :---: | :--- |
+| **Phase 1** | Window properties, override-redirect, initial geometry, 10x hotkey toggle, zero idle CPU | **PASS** | 100% pass across all 7 checks |
+| **Phase 2** | Restack watcher dominance over `adv1_ewmh` (fullscreen), `adv2_override` (storm & grabs), `adv3_focuslock` | **PASS** | Always topmost child in `XQueryTree` |
+| **Phase 3** | Focus invariance (`xed`, `gnome-terminal`), MIRROR typing, EXCLUSIVE typing, GHOST mode, hostile resilience | **PASS** | Zero focus changes to `_NET_ACTIVE_WINDOW` |
+| **Phase 4** | WebKit rendering, persistent cookie storage, URL bar navigation, SIGHUP dynamic repositioning, supervisor recovery, CLI IPC | **PASS** | All 6 acceptance tests verified |
+
+---
+
+# Phase 5 Devlog: ChatGPT Web App, Multi-App Switcher & Hostile Clipboard Shield
+
+**Date:** 2026-10-17  
+**Status:** COMPLETE (All Phases 1-5 tests passing 100%)
+
+### Architectural Accomplishments:
+1. **Multi-App Switcher & Home Screen**:
+   - Implemented 3 application modes: Home launcher (`home`), ChatGPT web app (`chatgpt`), and Mobile Browser (`browser`).
+   - App switching via bottom bar Home button (`⌂`), Back navigation (`←`), and home launcher icons.
+2. **ChatGPT Mobile Web App**:
+   - Mobile web app loaded with dedicated persistent cookies/session.
+   - Fixed OAuth/login Google auth popup blocks using internal webview popup interception layer (`create` web-view signal) with mobile-responsive modal overlay.
+   - Headerless clean UI for ChatGPT app.
+3. **Passive Clipboard Shield**:
+   - Addressed hostile desktop environments attempting to steal or intercept clipboard shortcuts.
+   - Passive `XGrabKey` on root window for `Ctrl+A`, `Ctrl+C`, `Ctrl+V`, `Ctrl+X` while typing target is `OVERLAY`.
+   - Intercepted and routed directly to active overlay widget / webview (`webkit_web_view_execute_editing_command`).
+
+---
+
+# Phase 6 Devlog: Screen Capture (Snap) Subsystem & X11 Screenshot Engine
+
+**Date:** 2026-10-17  
+**Status:** COMPLETE (All Phases 1-6 tests passing 100%)
+
+### Architectural Accomplishments:
+1. **Zero-Self-Capture Pipeline**:
+   - Unmaps overlay (`XUnmapWindow`), flushes X connection, captures screen with XGetImage / GDK, and immediately remaps overlay without flicker.
+   - Saves image to `~/Pictures/phoneoverlay/snap-YYYYMMDD-HHMMSS.png` with auto-pruning.
+   - Automatically sets image to desktop clipboard as `image/png`.
+2. **Bottom Controls & Global Hotkey**:
+   - 4th button in bottom controls bar: Snap button (`📸`).
+   - Global hotkey: <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Alt</kbd>+<kbd>S</kbd>.
+   - CLI command: `phoneoverlay --snap`.
+
+---
+
+# Phase 7 Devlog: Ghost Writer Subsystem & Final Completion
+
+**Date:** 2026-10-17  
+**Status:** COMPLETE (All Phases 1-7 basic checks C1-C4 passing 100%)
+
+### Architectural Accomplishments:
+1. **Bottom Controls Reconfiguration & Iconography**:
+   - Reconfigured bottom navigation bar: `Back`, `Home`, `Ghost Writer`, `Snap`.
+   - Relocated Reload button inside the Browser app's URL-bar header row only (`⟳`); ChatGPT app has no reload button.
+   - Custom Cairo vector icon drawn for Ghost Writer button: rounded dome silhouette, 3-ripple skirt, subtle border stroke, and dual dark eyes.
+   - Button state stack: IDLE (Ghost icon), TYPING (`⏳`), DONE (`✓` with 1.2s auto-revert timer), FAILED (`✗` with 1.2s auto-revert timer).
+   - Test entry placeholder updated to `"Type here, then tap Ghost Writer"`. Field retains text after injection.
+2. **XTEST Input Focus Injection (`src/ghost.c`, `src/ghost.h`)**:
+   - Dedicated secondary `Display*` connection exclusively for XTEST (`XTestFakeKeyEvent`) and keyboard layout introspection.
+   - Focus discovery via `XGetInputFocus`. Aborts with toast `"No focused app"` if target is `None`, `PointerRoot`, or our overlay/child windows.
+   - Resolves target app name from `_NET_ACTIVE_WINDOW` / `WM_CLASS` solely for displaying `"Typed N chars in <App>"` toast.
+   - **Privacy Guarantee**: Typed text is NEVER written to logs, DEVLOG, stdout/stderr, or toasts. Only character count is recorded.
+3. **Layout Mapping & Non-Layout Character Fallback**:
+   - Queries keyboard mapping across all 4 levels (0: unshifted, 1: Shift, 2: AltGr/Mod5, 3: Shift+AltGr).
+   - For non-layout Unicode characters (€, ₹, é, Cyrillic, Hindi, etc.), dynamically finds an unused spare keycode from `max_kc` downwards, temporarily maps via `XChangeKeyboardMapping`, injects, and restores to `NoSymbol` on completion and on all error/cancel paths.
+4. **Hardware CapsLock & Modifier Integrity**:
+   - Reads CapsLock state via `XkbGetState`. If active, temporarily disables with `XkbLockModifiers` before typing and restores to `LockMask` afterwards.
+   - Before typing begins, waits ~60ms for physical hotkey release and clears held Control/Alt modifiers to prevent hotkey bleed into the first characters.
+   - Guarantees 0 stuck modifiers verified via `XQueryKeymap`.
+5. **Self-Echo Guard & Grab Management**:
+   - Engages `s_guard_active = true` before first injected event, causing XI2 raw key listener, passive hotkey grabs, and mirror mode to discard injected events.
+   - On completion: syncs X server, drains raw events, waits 25ms settling period, then disengages guard.
+   - Automatically releases exclusive keyboard grab and clipboard-shield passive grabs and resets typing target to `TYPING_TARGET_NONE`.
+6. **Speed & GLib State Machine**:
+   - Instant mode (`ghost_delay_ms == 0`): Synchronous batching with `XFlush` and `XSync` every 16 characters with 1-2ms server-level event delay for reliable desktop toolkit processing.
+   - Delayed mode (`ghost_delay_ms > 0`): GLib timeout state machine. Tapping button during typing cancels and releases held keys.
+   - Global hotkey: <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Alt</kbd>+<kbd>W</kbd>.
+   - CLI commands: `phoneoverlay --ghost-write`, `phoneoverlay --get-entry`, `phoneoverlay --set-entry <text>`, `phoneoverlay --clear-entry`.
+
+---
+
+### Test Verification Matrix (Phases 1 - 7)
+
+| Suite | Scope / Tests | Result | Notes |
+| :--- | :--- | :---: | :--- |
+| **Phase 1** | Window properties, override-redirect, initial geometry, 10x hotkey toggle, zero idle CPU | **PASS** | 100% pass across all 7 checks |
+| **Phase 2** | Restack watcher dominance over `adv1_ewmh` (fullscreen), `adv2_override` (storm & grabs), `adv3_focuslock` | **PASS** | Always topmost child in `XQueryTree` |
+| **Phase 3** | Focus invariance (`xed`, `gnome-terminal`), MIRROR typing, EXCLUSIVE typing, GHOST mode, hostile resilience | **PASS** | Zero focus changes to `_NET_ACTIVE_WINDOW` |
+| **Phase 4** | WebKit rendering, persistent cookie storage, URL bar navigation, SIGHUP dynamic repositioning, supervisor recovery, CLI IPC | **PASS** | All 6 acceptance tests verified |
+| **Phase 5** | ChatGPT mobile webview, app switcher, Google OAuth modal popup interception, passive clipboard shield | **PASS** | All dual-app & clipboard tests verified |
+| **Phase 6** | Zero-self-capture screenshot engine, timestamped storage, PNG clipboard forwarding, snap hotkey & button | **PASS** | All screen capture tests verified |
+| **Phase 7** | Ghost Writer XTEST typing, layout mapping, spare keycode fallback, CapsLock preservation, focus invariance, self-echo guard | **PASS** | All basic checks C1, C2, C3, C4 passed (100%) |
+
+---
+
+
