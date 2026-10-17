@@ -45,12 +45,14 @@ install: $(TARGET)
 	mkdir -p $(HOME)/.config/phoneoverlay
 	mkdir -p $(HOME)/.local/share/phoneoverlay
 	install -m 755 $(TARGET) $(HOME)/.local/bin/phoneoverlay
+	install -m 755 scripts/phone-overlay $(HOME)/.local/bin/phone-overlay
 	install -m 755 scripts/phoneoverlay-supervisor $(HOME)/.local/bin/phoneoverlay-supervisor
 	install -m 644 phoneoverlay.desktop $(HOME)/.config/autostart/phoneoverlay.desktop
-	@echo "Installed phoneoverlay to $(HOME)/.local/bin and autostart to $(HOME)/.config/autostart."
+	@echo "Installed phoneoverlay and phone-overlay to $(HOME)/.local/bin and autostart to $(HOME)/.config/autostart."
 
 uninstall:
 	rm -f $(HOME)/.local/bin/phoneoverlay
+	rm -f $(HOME)/.local/bin/phone-overlay
 	rm -f $(HOME)/.local/bin/phoneoverlay-supervisor
 	rm -f $(HOME)/.config/autostart/phoneoverlay.desktop
 	@echo "Uninstalled phoneoverlay binary, supervisor, and autostart desktop entry."

@@ -7,6 +7,8 @@
 
 #define OVERLAY_WIDTH        360
 #define OVERLAY_HEIGHT       640
+#define OVERLAY_MIN_WIDTH    280
+#define OVERLAY_MIN_HEIGHT   450
 #define OVERLAY_MARGIN       12
 #define PHONE_CORNER_RADIUS  28.0
 
@@ -31,6 +33,11 @@ void        overlay_get_geometry(int *x, int *y, int *w, int *h);
 void        overlay_queue_draw(void);
 void        overlay_set_ghost(gboolean ghost);
 void        overlay_apply_config(void);
+void        overlay_set_opacity(double opacity);
+double      overlay_get_opacity(void);
+void        overlay_set_size(int width, int height);
+void        overlay_set_fullscreen(void);
+void        overlay_set_default_size(void);
 
 #include "ghost.h"
 

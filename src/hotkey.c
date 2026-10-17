@@ -33,12 +33,21 @@ static GSource   *s_hotkey_source = NULL;
 static gint64     s_last_toggle_time = 0;
 static gint64     s_last_mode_cycle_time = 0;
 static gint64     s_last_ghost_toggle_time = 0;
+static gint64     s_last_opacity_dec_time = 0;
+static gint64     s_last_opacity_inc_time = 0;
+static gint64     s_last_fullscreen_time = 0;
+static gint64     s_last_default_size_time = 0;
 static gint64     s_last_snap_time = 0;
 static gint64     s_last_ghost_write_time = 0;
+
 static bool       s_x_key_down = false;
-static bool       s_m_key_down = false;
 static bool       s_g_key_down = false;
+static bool       s_a_key_down = false;
 static bool       s_s_key_down = false;
+static bool       s_f_key_down = false;
+static bool       s_d_key_down = false;
+static bool       s_p_key_down = false;
+static bool       s_m_key_down = false;
 static bool       s_w_key_down = false;
 
 /* Raw event modifier tracking for resilience against external grabs */
@@ -129,7 +138,7 @@ static bool is_alt_keycode(Display *dpy, KeyCode kc) {
     return false;
 }
 
-static bool are_modifiers_physically_down(Display *dpy) {
+static bool is_alt_physically_down(Display *dpy) {
     char keys[32];
     XQueryKeymap(dpy, keys);
 
@@ -174,7 +183,55 @@ static bool are_modifiers_physically_down(Display *dpy) {
     if (!shift_down && s_raw_shift_down) shift_down = true;
     if (!alt_down && s_raw_alt_down) alt_down = true;
 
-    return (ctrl_down && shift_down && alt_down);
+    return (alt_down && !ctrl_down && !shift_down);
+}
+
+static void get_hotkey_keycodes(Display *dpy,
+                                KeyCode *x_l, KeyCode *x_u,
+                                KeyCode *g_l, KeyCode *g_u,
+                                KeyCode *a_l, KeyCode *a_u,
+                                KeyCode *s_l, KeyCode *s_u,
+                                KeyCode *f_l, KeyCode *f_u,
+                                KeyCode *d_l, KeyCode *d_u,
+                                KeyCode *p_l, KeyCode *p_u,
+                                KeyCode *m_l, KeyCode *m_u,
+                                KeyCode *w_l, KeyCode *w_u) {
+    const AppConfig *cfg = config_get();
+    char x_c = (cfg && cfg->toggle_key) ? cfg->toggle_key : 'x';
+    char g_c = (cfg && cfg->ghost_key) ? cfg->ghost_key : 'g';
+    char p_c = (cfg && cfg->snap_key) ? cfg->snap_key : 'p';
+    char m_c = (cfg && cfg->mode_key) ? cfg->mode_key : 'm';
+    char w_c = (cfg && cfg->ghost_writer_key) ? cfg->ghost_writer_key : 'w';
+
+    if (x_l) *x_l = XKeysymToKeycode(dpy, char_to_keysym_lower(x_c));
+    if (x_u) *x_u = XKeysymToKeycode(dpy, char_to_keysym_upper(x_c));
+    if (g_l) *g_l = XKeysymToKeycode(dpy, char_to_keysym_lower(g_c));
+    if (g_u) *g_u = XKeysymToKeycode(dpy, char_to_keysym_upper(g_c));
+    if (a_l) *a_l = XKeysymToKeycode(dpy, XK_a);
+    if (a_u) *a_u = XKeysymToKeycode(dpy, XK_A);
+    if (s_l) *s_l = XKeysymToKeycode(dpy, XK_s);
+    if (s_u) *s_u = XKeysymToKeycode(dpy, XK_S);
+    if (f_l) *f_l = XKeysymToKeycode(dpy, XK_f);
+    if (f_u) *f_u = XKeysymToKeycode(dpy, XK_F);
+    if (d_l) *d_l = XKeysymToKeycode(dpy, XK_d);
+    if (d_u) *d_u = XKeysymToKeycode(dpy, XK_D);
+    if (p_l) *p_l = XKeysymToKeycode(dpy, char_to_keysym_lower(p_c));
+    if (p_u) *p_u = XKeysymToKeycode(dpy, char_to_keysym_upper(p_c));
+    if (m_l) *m_l = XKeysymToKeycode(dpy, char_to_keysym_lower(m_c));
+    if (m_u) *m_u = XKeysymToKeycode(dpy, char_to_keysym_upper(m_c));
+    if (w_l) *w_l = XKeysymToKeycode(dpy, char_to_keysym_lower(w_c));
+    if (w_u) *w_u = XKeysymToKeycode(dpy, char_to_keysym_upper(w_c));
+}
+
+static void trigger_snap(const char *source_desc) {
+    gint64 now = g_get_monotonic_time();
+    if (now - s_last_snap_time < 200000) {
+        xutil_log("HOTKEY", "Deduped snap from %s (<200ms since last trigger)", source_desc);
+        return;
+    }
+    s_last_snap_time = now;
+    xutil_log("HOTKEY", "Alt+P triggered via %s -> Taking snap", source_desc);
+    overlay_snap();
 }
 
 static void trigger_hotkey_toggle(const char *source_desc) {
@@ -186,20 +243,9 @@ static void trigger_hotkey_toggle(const char *source_desc) {
     }
 
     s_last_toggle_time = now;
-    xutil_log("HOTKEY", "Ctrl+Shift+Alt+X triggered via %s -> Toggling overlay", source_desc);
+    xutil_log("HOTKEY", "Alt+X triggered via %s -> Toggling overlay", source_desc);
     input_release_grab();
     overlay_toggle();
-}
-
-static void trigger_mode_cycle(const char *source_desc) {
-    gint64 now = g_get_monotonic_time();
-    if (now - s_last_mode_cycle_time < 150000) {
-        xutil_log("HOTKEY", "Deduped mode cycle from %s (<150ms since last trigger)", source_desc);
-        return;
-    }
-    s_last_mode_cycle_time = now;
-    xutil_log("HOTKEY", "Ctrl+Shift+Alt+M triggered via %s -> Cycling key mode", source_desc);
-    input_cycle_key_mode();
 }
 
 static void trigger_ghost_toggle(const char *source_desc) {
@@ -209,19 +255,63 @@ static void trigger_ghost_toggle(const char *source_desc) {
         return;
     }
     s_last_ghost_toggle_time = now;
-    xutil_log("HOTKEY", "Ctrl+Shift+Alt+G triggered via %s -> Toggling ghost mode", source_desc);
+    xutil_log("HOTKEY", "Alt+G triggered via %s -> Toggling ghost mode", source_desc);
     input_toggle_ghost_mode();
 }
 
-static void trigger_snap(const char *source_desc) {
+static void trigger_opacity_dec(const char *source_desc) {
     gint64 now = g_get_monotonic_time();
-    if (now - s_last_snap_time < 200000) {
-        xutil_log("HOTKEY", "Deduped snap from %s (<200ms since last trigger)", source_desc);
+    if (now - s_last_opacity_dec_time < 120000) {
+        xutil_log("HOTKEY", "Deduped opacity dec from %s (<120ms since last trigger)", source_desc);
         return;
     }
-    s_last_snap_time = now;
-    xutil_log("HOTKEY", "Ctrl+Shift+Alt+S triggered via %s -> Taking snap", source_desc);
-    overlay_snap();
+    s_last_opacity_dec_time = now;
+    xutil_log("HOTKEY", "Alt+A triggered via %s -> Decreasing opacity", source_desc);
+    overlay_set_opacity(overlay_get_opacity() - 0.10);
+}
+
+static void trigger_opacity_inc(const char *source_desc) {
+    gint64 now = g_get_monotonic_time();
+    if (now - s_last_opacity_inc_time < 120000) {
+        xutil_log("HOTKEY", "Deduped opacity inc from %s (<120ms since last trigger)", source_desc);
+        return;
+    }
+    s_last_opacity_inc_time = now;
+    xutil_log("HOTKEY", "Alt+S triggered via %s -> Increasing opacity", source_desc);
+    overlay_set_opacity(overlay_get_opacity() + 0.10);
+}
+
+static void trigger_fullscreen(const char *source_desc) {
+    gint64 now = g_get_monotonic_time();
+    if (now - s_last_fullscreen_time < 200000) {
+        xutil_log("HOTKEY", "Deduped fullscreen from %s (<200ms since last trigger)", source_desc);
+        return;
+    }
+    s_last_fullscreen_time = now;
+    xutil_log("HOTKEY", "Alt+F triggered via %s -> Fullscreen mode", source_desc);
+    overlay_set_fullscreen();
+}
+
+static void trigger_default_size(const char *source_desc) {
+    gint64 now = g_get_monotonic_time();
+    if (now - s_last_default_size_time < 200000) {
+        xutil_log("HOTKEY", "Deduped default size from %s (<200ms since last trigger)", source_desc);
+        return;
+    }
+    s_last_default_size_time = now;
+    xutil_log("HOTKEY", "Alt+D triggered via %s -> Default size", source_desc);
+    overlay_set_default_size();
+}
+
+static void trigger_mode_cycle(const char *source_desc) {
+    gint64 now = g_get_monotonic_time();
+    if (now - s_last_mode_cycle_time < 150000) {
+        xutil_log("HOTKEY", "Deduped mode cycle from %s (<150ms since last trigger)", source_desc);
+        return;
+    }
+    s_last_mode_cycle_time = now;
+    xutil_log("HOTKEY", "Alt+M triggered via %s -> Cycling key mode", source_desc);
+    input_cycle_key_mode();
 }
 
 static void trigger_ghost_write(const char *source_desc) {
@@ -231,7 +321,7 @@ static void trigger_ghost_write(const char *source_desc) {
         return;
     }
     s_last_ghost_write_time = now;
-    xutil_log("HOTKEY", "Ctrl+Shift+Alt+W triggered via %s -> Ghost Write", source_desc);
+    xutil_log("HOTKEY", "Alt+W triggered via %s -> Ghost Write", source_desc);
     ghost_writer_run();
 }
 
@@ -257,54 +347,27 @@ static void handle_raw_key_press(int detail) {
         s_raw_alt_down = true;
     }
 
-    /* Check configured keycodes */
-    KeyCode x_kc_lower = 0, x_kc_upper = 0;
-    KeyCode m_kc_lower = 0, m_kc_upper = 0;
-    KeyCode g_kc_lower = 0, g_kc_upper = 0;
-    KeyCode s_kc_lower = 0, s_kc_upper = 0;
-    KeyCode w_kc_lower = 0, w_kc_upper = 0;
-    const AppConfig *cfg = config_get();
+    KeyCode x_l, x_u, g_l, g_u, a_l, a_u, s_l, s_u, f_l, f_u, d_l, d_u, p_l, p_u, m_l, m_u, w_l, w_u;
+    get_hotkey_keycodes(s_hotkey_dpy,
+                        &x_l, &x_u, &g_l, &g_u, &a_l, &a_u, &s_l, &s_u,
+                        &f_l, &f_u, &d_l, &d_u, &p_l, &p_u, &m_l, &m_u, &w_l, &w_u);
 
-    KeySym sym_x_l = char_to_keysym_lower(cfg->toggle_key);
-    KeySym sym_x_u = char_to_keysym_upper(cfg->toggle_key);
-    KeySym sym_m_l = char_to_keysym_lower(cfg->mode_key);
-    KeySym sym_m_u = char_to_keysym_upper(cfg->mode_key);
-    KeySym sym_g_l = char_to_keysym_lower(cfg->ghost_key);
-    KeySym sym_g_u = char_to_keysym_upper(cfg->ghost_key);
-    KeySym sym_s_l = char_to_keysym_lower(cfg->snap_key);
-    KeySym sym_s_u = char_to_keysym_upper(cfg->snap_key);
-    KeySym sym_w_l = char_to_keysym_lower(cfg->ghost_writer_key);
-    KeySym sym_w_u = char_to_keysym_upper(cfg->ghost_writer_key);
+    KeyCode kc = (KeyCode)detail;
+    bool is_x = (kc == x_l) || (x_u != 0 && kc == x_u);
+    bool is_g = (kc == g_l) || (g_u != 0 && kc == g_u);
+    bool is_a = (kc == a_l) || (a_u != 0 && kc == a_u);
+    bool is_s = (kc == s_l) || (s_u != 0 && kc == s_u);
+    bool is_f = (kc == f_l) || (f_u != 0 && kc == f_u);
+    bool is_d = (kc == d_l) || (d_u != 0 && kc == d_u);
+    bool is_p = (kc == p_l) || (p_u != 0 && kc == p_u);
+    bool is_m = (kc == m_l) || (m_u != 0 && kc == m_u);
+    bool is_w = (kc == w_l) || (w_u != 0 && kc == w_u);
 
-    x_kc_lower = XKeysymToKeycode(s_hotkey_dpy, sym_x_l);
-    if (sym_x_u != NoSymbol) x_kc_upper = XKeysymToKeycode(s_hotkey_dpy, sym_x_u);
-    m_kc_lower = XKeysymToKeycode(s_hotkey_dpy, sym_m_l);
-    if (sym_m_u != NoSymbol) m_kc_upper = XKeysymToKeycode(s_hotkey_dpy, sym_m_u);
-    g_kc_lower = XKeysymToKeycode(s_hotkey_dpy, sym_g_l);
-    if (sym_g_u != NoSymbol) g_kc_upper = XKeysymToKeycode(s_hotkey_dpy, sym_g_u);
-    s_kc_lower = XKeysymToKeycode(s_hotkey_dpy, sym_s_l);
-    if (sym_s_u != NoSymbol) s_kc_upper = XKeysymToKeycode(s_hotkey_dpy, sym_s_u);
-    w_kc_lower = XKeysymToKeycode(s_hotkey_dpy, sym_w_l);
-    if (sym_w_u != NoSymbol) w_kc_upper = XKeysymToKeycode(s_hotkey_dpy, sym_w_u);
-
-    bool is_x = ((KeyCode)detail == x_kc_lower) || (x_kc_upper != 0 && (KeyCode)detail == x_kc_upper);
-    bool is_m = ((KeyCode)detail == m_kc_lower) || (m_kc_upper != 0 && (KeyCode)detail == m_kc_upper);
-    bool is_g = ((KeyCode)detail == g_kc_lower) || (g_kc_upper != 0 && (KeyCode)detail == g_kc_upper);
-    bool is_s = ((KeyCode)detail == s_kc_lower) || (s_kc_upper != 0 && (KeyCode)detail == s_kc_upper);
-    bool is_w = ((KeyCode)detail == w_kc_lower) || (w_kc_upper != 0 && (KeyCode)detail == w_kc_upper);
-
-    if ((is_x || is_m || is_g || is_s || is_w) && are_modifiers_physically_down(s_hotkey_dpy)) {
+    if ((is_x || is_g || is_a || is_s || is_f || is_d || is_p || is_m || is_w) && is_alt_physically_down(s_hotkey_dpy)) {
         if (is_x) {
             if (!s_x_key_down) {
                 s_x_key_down = true;
                 trigger_hotkey_toggle("XInput2 Raw Event");
-            }
-            return;
-        }
-        if (is_m) {
-            if (!s_m_key_down) {
-                s_m_key_down = true;
-                trigger_mode_cycle("XInput2 Raw Event");
             }
             return;
         }
@@ -315,10 +378,45 @@ static void handle_raw_key_press(int detail) {
             }
             return;
         }
+        if (is_a) {
+            if (!s_a_key_down) {
+                s_a_key_down = true;
+                trigger_opacity_dec("XInput2 Raw Event");
+            }
+            return;
+        }
         if (is_s) {
             if (!s_s_key_down) {
                 s_s_key_down = true;
+                trigger_opacity_inc("XInput2 Raw Event");
+            }
+            return;
+        }
+        if (is_f) {
+            if (!s_f_key_down) {
+                s_f_key_down = true;
+                trigger_fullscreen("XInput2 Raw Event");
+            }
+            return;
+        }
+        if (is_d) {
+            if (!s_d_key_down) {
+                s_d_key_down = true;
+                trigger_default_size("XInput2 Raw Event");
+            }
+            return;
+        }
+        if (is_p) {
+            if (!s_p_key_down) {
+                s_p_key_down = true;
                 trigger_snap("XInput2 Raw Event");
+            }
+            return;
+        }
+        if (is_m) {
+            if (!s_m_key_down) {
+                s_m_key_down = true;
+                trigger_mode_cycle("XInput2 Raw Event");
             }
             return;
         }
@@ -357,47 +455,21 @@ static void handle_raw_key_release(int detail) {
         return;
     }
 
-    const AppConfig *cfg = config_get();
-    KeySym sym_x_l = char_to_keysym_lower(cfg->toggle_key);
-    KeySym sym_x_u = char_to_keysym_upper(cfg->toggle_key);
-    KeySym sym_m_l = char_to_keysym_lower(cfg->mode_key);
-    KeySym sym_m_u = char_to_keysym_upper(cfg->mode_key);
-    KeySym sym_g_l = char_to_keysym_lower(cfg->ghost_key);
-    KeySym sym_g_u = char_to_keysym_upper(cfg->ghost_key);
-    KeySym sym_s_l = char_to_keysym_lower(cfg->snap_key);
-    KeySym sym_s_u = char_to_keysym_upper(cfg->snap_key);
-    KeySym sym_w_l = char_to_keysym_lower(cfg->ghost_writer_key);
-    KeySym sym_w_u = char_to_keysym_upper(cfg->ghost_writer_key);
+    KeyCode x_l, x_u, g_l, g_u, a_l, a_u, s_l, s_u, f_l, f_u, d_l, d_u, p_l, p_u, m_l, m_u, w_l, w_u;
+    get_hotkey_keycodes(s_hotkey_dpy,
+                        &x_l, &x_u, &g_l, &g_u, &a_l, &a_u, &s_l, &s_u,
+                        &f_l, &f_u, &d_l, &d_u, &p_l, &p_u, &m_l, &m_u, &w_l, &w_u);
 
-    KeyCode x_kc_lower = XKeysymToKeycode(s_hotkey_dpy, sym_x_l);
-    KeyCode x_kc_upper = (sym_x_u != NoSymbol) ? XKeysymToKeycode(s_hotkey_dpy, sym_x_u) : 0;
-    if ((KeyCode)detail == x_kc_lower || (x_kc_upper != 0 && (KeyCode)detail == x_kc_upper)) {
-        s_x_key_down = false;
-    }
-
-    KeyCode m_kc_lower = XKeysymToKeycode(s_hotkey_dpy, sym_m_l);
-    KeyCode m_kc_upper = (sym_m_u != NoSymbol) ? XKeysymToKeycode(s_hotkey_dpy, sym_m_u) : 0;
-    if ((KeyCode)detail == m_kc_lower || (m_kc_upper != 0 && (KeyCode)detail == m_kc_upper)) {
-        s_m_key_down = false;
-    }
-
-    KeyCode g_kc_lower = XKeysymToKeycode(s_hotkey_dpy, sym_g_l);
-    KeyCode g_kc_upper = (sym_g_u != NoSymbol) ? XKeysymToKeycode(s_hotkey_dpy, sym_g_u) : 0;
-    if ((KeyCode)detail == g_kc_lower || (g_kc_upper != 0 && (KeyCode)detail == g_kc_upper)) {
-        s_g_key_down = false;
-    }
-
-    KeyCode s_kc_lower = XKeysymToKeycode(s_hotkey_dpy, sym_s_l);
-    KeyCode s_kc_upper = (sym_s_u != NoSymbol) ? XKeysymToKeycode(s_hotkey_dpy, sym_s_u) : 0;
-    if ((KeyCode)detail == s_kc_lower || (s_kc_upper != 0 && (KeyCode)detail == s_kc_upper)) {
-        s_s_key_down = false;
-    }
-
-    KeyCode w_kc_lower = XKeysymToKeycode(s_hotkey_dpy, sym_w_l);
-    KeyCode w_kc_upper = (sym_w_u != NoSymbol) ? XKeysymToKeycode(s_hotkey_dpy, sym_w_u) : 0;
-    if ((KeyCode)detail == w_kc_lower || (w_kc_upper != 0 && (KeyCode)detail == w_kc_upper)) {
-        s_w_key_down = false;
-    }
+    KeyCode kc = (KeyCode)detail;
+    if (kc == x_l || (x_u != 0 && kc == x_u)) s_x_key_down = false;
+    if (kc == g_l || (g_u != 0 && kc == g_u)) s_g_key_down = false;
+    if (kc == a_l || (a_u != 0 && kc == a_u)) s_a_key_down = false;
+    if (kc == s_l || (s_u != 0 && kc == s_u)) s_s_key_down = false;
+    if (kc == f_l || (f_u != 0 && kc == f_u)) s_f_key_down = false;
+    if (kc == d_l || (d_u != 0 && kc == d_u)) s_d_key_down = false;
+    if (kc == p_l || (p_u != 0 && kc == p_u)) s_p_key_down = false;
+    if (kc == m_l || (m_u != 0 && kc == m_u)) s_m_key_down = false;
+    if (kc == w_l || (w_u != 0 && kc == w_u)) s_w_key_down = false;
 
     /* Forward key release to input subsystem */
     input_handle_raw_key(detail, false);
@@ -559,81 +631,67 @@ static void hotkey_process_events(void) {
                 }
             }
 
-            /* 2. Global hotkeys (Ctrl+Shift+Alt+X / M / G / S / W) */
-            const AppConfig *cfg = config_get();
-            KeySym sym_x_l = char_to_keysym_lower(cfg->toggle_key);
-            KeySym sym_x_u = char_to_keysym_upper(cfg->toggle_key);
-            KeySym sym_m_l = char_to_keysym_lower(cfg->mode_key);
-            KeySym sym_m_u = char_to_keysym_upper(cfg->mode_key);
-            KeySym sym_g_l = char_to_keysym_lower(cfg->ghost_key);
-            KeySym sym_g_u = char_to_keysym_upper(cfg->ghost_key);
-            KeySym sym_s_l = char_to_keysym_lower(cfg->snap_key);
-            KeySym sym_s_u = char_to_keysym_upper(cfg->snap_key);
-            KeySym sym_w_l = char_to_keysym_lower(cfg->ghost_writer_key);
-            KeySym sym_w_u = char_to_keysym_upper(cfg->ghost_writer_key);
+            /* 2. Global hotkeys (Alt+X / G / A / S / F / D / P / M / W) */
+            KeyCode x_l, x_u, g_l, g_u, a_l, a_u, s_l, s_u, f_l, f_u, d_l, d_u, p_l, p_u, m_l, m_u, w_l, w_u;
+            get_hotkey_keycodes(s_hotkey_dpy,
+                                &x_l, &x_u, &g_l, &g_u, &a_l, &a_u, &s_l, &s_u,
+                                &f_l, &f_u, &d_l, &d_u, &p_l, &p_u, &m_l, &m_u, &w_l, &w_u);
 
-            KeyCode x_kc_lower = XKeysymToKeycode(s_hotkey_dpy, sym_x_l);
-            KeyCode x_kc_upper = (sym_x_u != NoSymbol) ? XKeysymToKeycode(s_hotkey_dpy, sym_x_u) : 0;
-            KeyCode m_kc_lower = XKeysymToKeycode(s_hotkey_dpy, sym_m_l);
-            KeyCode m_kc_upper = (sym_m_u != NoSymbol) ? XKeysymToKeycode(s_hotkey_dpy, sym_m_u) : 0;
-            KeyCode g_kc_lower = XKeysymToKeycode(s_hotkey_dpy, sym_g_l);
-            KeyCode g_kc_upper = (sym_g_u != NoSymbol) ? XKeysymToKeycode(s_hotkey_dpy, sym_g_u) : 0;
-            KeyCode s_kc_lower = XKeysymToKeycode(s_hotkey_dpy, sym_s_l);
-            KeyCode s_kc_upper = (sym_s_u != NoSymbol) ? XKeysymToKeycode(s_hotkey_dpy, sym_s_u) : 0;
-            KeyCode w_kc_lower = XKeysymToKeycode(s_hotkey_dpy, sym_w_l);
-            KeyCode w_kc_upper = (sym_w_u != NoSymbol) ? XKeysymToKeycode(s_hotkey_dpy, sym_w_u) : 0;
-
-            if (ev.xkey.keycode == x_kc_lower || (x_kc_upper != 0 && ev.xkey.keycode == x_kc_upper)) {
+            KeyCode kc = ev.xkey.keycode;
+            if (kc == x_l || (x_u != 0 && kc == x_u)) {
                 s_x_key_down = true;
                 trigger_hotkey_toggle("Passive XGrabKey");
-            } else if (ev.xkey.keycode == m_kc_lower || (m_kc_upper != 0 && ev.xkey.keycode == m_kc_upper)) {
-                s_m_key_down = true;
-                trigger_mode_cycle("Passive XGrabKey");
-            } else if (ev.xkey.keycode == g_kc_lower || (g_kc_upper != 0 && ev.xkey.keycode == g_kc_upper)) {
+            } else if (kc == g_l || (g_u != 0 && kc == g_u)) {
                 s_g_key_down = true;
                 trigger_ghost_toggle("Passive XGrabKey");
-            } else if (ev.xkey.keycode == s_kc_lower || (s_kc_upper != 0 && ev.xkey.keycode == s_kc_upper)) {
+            } else if (kc == a_l || (a_u != 0 && kc == a_u)) {
+                s_a_key_down = true;
+                trigger_opacity_dec("Passive XGrabKey");
+            } else if (kc == s_l || (s_u != 0 && kc == s_u)) {
                 s_s_key_down = true;
+                trigger_opacity_inc("Passive XGrabKey");
+            } else if (kc == f_l || (f_u != 0 && kc == f_u)) {
+                s_f_key_down = true;
+                trigger_fullscreen("Passive XGrabKey");
+            } else if (kc == d_l || (d_u != 0 && kc == d_u)) {
+                s_d_key_down = true;
+                trigger_default_size("Passive XGrabKey");
+            } else if (kc == p_l || (p_u != 0 && kc == p_u)) {
+                s_p_key_down = true;
                 trigger_snap("Passive XGrabKey");
-            } else if (ev.xkey.keycode == w_kc_lower || (w_kc_upper != 0 && ev.xkey.keycode == w_kc_upper)) {
+            } else if (kc == m_l || (m_u != 0 && kc == m_u)) {
+                s_m_key_down = true;
+                trigger_mode_cycle("Passive XGrabKey");
+            } else if (kc == w_l || (w_u != 0 && kc == w_u)) {
                 s_w_key_down = true;
                 trigger_ghost_write("Passive XGrabKey");
             }
         } else if (ev.type == KeyRelease) {
             if (ghost_is_guard_active()) continue;
 
-            const AppConfig *cfg = config_get();
-            KeySym sym_x_l = char_to_keysym_lower(cfg->toggle_key);
-            KeySym sym_x_u = char_to_keysym_upper(cfg->toggle_key);
-            KeySym sym_m_l = char_to_keysym_lower(cfg->mode_key);
-            KeySym sym_m_u = char_to_keysym_upper(cfg->mode_key);
-            KeySym sym_g_l = char_to_keysym_lower(cfg->ghost_key);
-            KeySym sym_g_u = char_to_keysym_upper(cfg->ghost_key);
-            KeySym sym_s_l = char_to_keysym_lower(cfg->snap_key);
-            KeySym sym_s_u = char_to_keysym_upper(cfg->snap_key);
-            KeySym sym_w_l = char_to_keysym_lower(cfg->ghost_writer_key);
-            KeySym sym_w_u = char_to_keysym_upper(cfg->ghost_writer_key);
+            KeyCode x_l, x_u, g_l, g_u, a_l, a_u, s_l, s_u, f_l, f_u, d_l, d_u, p_l, p_u, m_l, m_u, w_l, w_u;
+            get_hotkey_keycodes(s_hotkey_dpy,
+                                &x_l, &x_u, &g_l, &g_u, &a_l, &a_u, &s_l, &s_u,
+                                &f_l, &f_u, &d_l, &d_u, &p_l, &p_u, &m_l, &m_u, &w_l, &w_u);
 
-            KeyCode x_kc_lower = XKeysymToKeycode(s_hotkey_dpy, sym_x_l);
-            KeyCode x_kc_upper = (sym_x_u != NoSymbol) ? XKeysymToKeycode(s_hotkey_dpy, sym_x_u) : 0;
-            KeyCode m_kc_lower = XKeysymToKeycode(s_hotkey_dpy, sym_m_l);
-            KeyCode m_kc_upper = (sym_m_u != NoSymbol) ? XKeysymToKeycode(s_hotkey_dpy, sym_m_u) : 0;
-            KeyCode g_kc_lower = XKeysymToKeycode(s_hotkey_dpy, sym_g_l);
-            KeyCode g_kc_upper = (sym_g_u != NoSymbol) ? XKeysymToKeycode(s_hotkey_dpy, sym_g_u) : 0;
-            KeyCode s_kc_lower = XKeysymToKeycode(s_hotkey_dpy, sym_s_l);
-            KeyCode s_kc_upper = (sym_s_u != NoSymbol) ? XKeysymToKeycode(s_hotkey_dpy, sym_s_u) : 0;
-            KeyCode w_kc_lower = XKeysymToKeycode(s_hotkey_dpy, sym_w_l);
-            KeyCode w_kc_upper = (sym_w_u != NoSymbol) ? XKeysymToKeycode(s_hotkey_dpy, sym_w_u) : 0;
-
-            if (ev.xkey.keycode == x_kc_lower || (x_kc_upper != 0 && ev.xkey.keycode == x_kc_upper)) {
+            KeyCode kc = ev.xkey.keycode;
+            if (kc == x_l || (x_u != 0 && kc == x_u)) {
                 s_x_key_down = false;
-            } else if (ev.xkey.keycode == m_kc_lower || (m_kc_upper != 0 && ev.xkey.keycode == m_kc_upper)) {
-                s_m_key_down = false;
-            } else if (ev.xkey.keycode == g_kc_lower || (g_kc_upper != 0 && ev.xkey.keycode == g_kc_upper)) {
+            } else if (kc == g_l || (g_u != 0 && kc == g_u)) {
                 s_g_key_down = false;
-            } else if (ev.xkey.keycode == s_kc_lower || (s_kc_upper != 0 && ev.xkey.keycode == s_kc_upper)) {
+            } else if (kc == a_l || (a_u != 0 && kc == a_u)) {
+                s_a_key_down = false;
+            } else if (kc == s_l || (s_u != 0 && kc == s_u)) {
                 s_s_key_down = false;
-            } else if (ev.xkey.keycode == w_kc_lower || (w_kc_upper != 0 && ev.xkey.keycode == w_kc_upper)) {
+            } else if (kc == f_l || (f_u != 0 && kc == f_u)) {
+                s_f_key_down = false;
+            } else if (kc == d_l || (d_u != 0 && kc == d_u)) {
+                s_d_key_down = false;
+            } else if (kc == p_l || (p_u != 0 && kc == p_u)) {
+                s_p_key_down = false;
+            } else if (kc == m_l || (m_u != 0 && kc == m_u)) {
+                s_m_key_down = false;
+            } else if (kc == w_l || (w_u != 0 && kc == w_u)) {
                 s_w_key_down = false;
             }
         } else if (ev.type == MappingNotify) {
@@ -688,89 +746,68 @@ static GSourceFuncs s_hotkey_source_funcs = {
 static void register_passive_grabs(void) {
     if (!s_hotkey_dpy || s_root == None) return;
 
-    const AppConfig *cfg = config_get();
-    KeySym sym_x_l = char_to_keysym_lower(cfg->toggle_key);
-    KeySym sym_x_u = char_to_keysym_upper(cfg->toggle_key);
-    KeySym sym_m_l = char_to_keysym_lower(cfg->mode_key);
-    KeySym sym_m_u = char_to_keysym_upper(cfg->mode_key);
-    KeySym sym_g_l = char_to_keysym_lower(cfg->ghost_key);
-    KeySym sym_g_u = char_to_keysym_upper(cfg->ghost_key);
-    KeySym sym_s_l = char_to_keysym_lower(cfg->snap_key);
-    KeySym sym_s_u = char_to_keysym_upper(cfg->snap_key);
+    KeyCode x_l, x_u, g_l, g_u, a_l, a_u, s_l, s_u, f_l, f_u, d_l, d_u, p_l, p_u, m_l, m_u, w_l, w_u;
+    get_hotkey_keycodes(s_hotkey_dpy,
+                        &x_l, &x_u, &g_l, &g_u, &a_l, &a_u, &s_l, &s_u,
+                        &f_l, &f_u, &d_l, &d_u, &p_l, &p_u, &m_l, &m_u, &w_l, &w_u);
 
-    KeyCode x_kc_l = XKeysymToKeycode(s_hotkey_dpy, sym_x_l);
-    KeyCode x_kc_u = (sym_x_u != NoSymbol) ? XKeysymToKeycode(s_hotkey_dpy, sym_x_u) : 0;
-    KeyCode m_kc_l = XKeysymToKeycode(s_hotkey_dpy, sym_m_l);
-    KeyCode m_kc_u = (sym_m_u != NoSymbol) ? XKeysymToKeycode(s_hotkey_dpy, sym_m_u) : 0;
-    KeyCode g_kc_l = XKeysymToKeycode(s_hotkey_dpy, sym_g_l);
-    KeyCode g_kc_u = (sym_g_u != NoSymbol) ? XKeysymToKeycode(s_hotkey_dpy, sym_g_u) : 0;
-    KeyCode s_kc_l = XKeysymToKeycode(s_hotkey_dpy, sym_s_l);
-    KeyCode s_kc_u = (sym_s_u != NoSymbol) ? XKeysymToKeycode(s_hotkey_dpy, sym_s_u) : 0;
-    KeySym sym_w_l = char_to_keysym_lower(cfg->ghost_writer_key);
-    KeySym sym_w_u = char_to_keysym_upper(cfg->ghost_writer_key);
-    KeyCode w_kc_l = XKeysymToKeycode(s_hotkey_dpy, sym_w_l);
-    KeyCode w_kc_u = (sym_w_u != NoSymbol) ? XKeysymToKeycode(s_hotkey_dpy, sym_w_u) : 0;
+    KeyCode hotkey_kcs[] = {
+        x_l, x_u,
+        g_l, g_u,
+        a_l, a_u,
+        s_l, s_u,
+        f_l, f_u,
+        d_l, d_u,
+        p_l, p_u,
+        m_l, m_u,
+        w_l, w_u
+    };
+    size_t num_kcs = sizeof(hotkey_kcs) / sizeof(hotkey_kcs[0]);
 
-    unsigned int base_mods = ControlMask | ShiftMask | Mod1Mask;
+    unsigned int base_mods = Mod1Mask; /* Alt */
 
     for (size_t i = 0; i < NUM_LOCK_COMBOS; i++) {
         unsigned int mods = base_mods | s_lock_combos[i];
-        if (x_kc_l) XGrabKey(s_hotkey_dpy, x_kc_l, mods, s_root, False, GrabModeAsync, GrabModeAsync);
-        if (x_kc_u) XGrabKey(s_hotkey_dpy, x_kc_u, mods, s_root, False, GrabModeAsync, GrabModeAsync);
-        if (m_kc_l) XGrabKey(s_hotkey_dpy, m_kc_l, mods, s_root, False, GrabModeAsync, GrabModeAsync);
-        if (m_kc_u) XGrabKey(s_hotkey_dpy, m_kc_u, mods, s_root, False, GrabModeAsync, GrabModeAsync);
-        if (g_kc_l) XGrabKey(s_hotkey_dpy, g_kc_l, mods, s_root, False, GrabModeAsync, GrabModeAsync);
-        if (g_kc_u) XGrabKey(s_hotkey_dpy, g_kc_u, mods, s_root, False, GrabModeAsync, GrabModeAsync);
-        if (s_kc_l) XGrabKey(s_hotkey_dpy, s_kc_l, mods, s_root, False, GrabModeAsync, GrabModeAsync);
-        if (s_kc_u) XGrabKey(s_hotkey_dpy, s_kc_u, mods, s_root, False, GrabModeAsync, GrabModeAsync);
-        if (w_kc_l) XGrabKey(s_hotkey_dpy, w_kc_l, mods, s_root, False, GrabModeAsync, GrabModeAsync);
-        if (w_kc_u) XGrabKey(s_hotkey_dpy, w_kc_u, mods, s_root, False, GrabModeAsync, GrabModeAsync);
+        for (size_t k = 0; k < num_kcs; k++) {
+            if (hotkey_kcs[k] != 0) {
+                XGrabKey(s_hotkey_dpy, hotkey_kcs[k], mods, s_root, False, GrabModeAsync, GrabModeAsync);
+            }
+        }
     }
     XSync(s_hotkey_dpy, False);
-    xutil_log("HOTKEY", "Registered passive XGrabKey for Ctrl+Shift+Alt+%c/%c/%c/%c/%c across lock variations.",
-              cfg->toggle_key, cfg->mode_key, cfg->ghost_key, cfg->snap_key, cfg->ghost_writer_key);
+    xutil_log("HOTKEY", "Registered passive XGrabKey for Alt+x/g/a/s/f/d/p/m/w across lock variations.");
 }
 
 static void unregister_passive_grabs(void) {
     if (!s_hotkey_dpy || s_root == None) return;
 
-    const AppConfig *cfg = config_get();
-    KeySym sym_x_l = char_to_keysym_lower(cfg->toggle_key);
-    KeySym sym_x_u = char_to_keysym_upper(cfg->toggle_key);
-    KeySym sym_m_l = char_to_keysym_lower(cfg->mode_key);
-    KeySym sym_m_u = char_to_keysym_upper(cfg->mode_key);
-    KeySym sym_g_l = char_to_keysym_lower(cfg->ghost_key);
-    KeySym sym_g_u = char_to_keysym_upper(cfg->ghost_key);
-    KeySym sym_s_l = char_to_keysym_lower(cfg->snap_key);
-    KeySym sym_s_u = char_to_keysym_upper(cfg->snap_key);
-    KeySym sym_w_l = char_to_keysym_lower(cfg->ghost_writer_key);
-    KeySym sym_w_u = char_to_keysym_upper(cfg->ghost_writer_key);
+    KeyCode x_l, x_u, g_l, g_u, a_l, a_u, s_l, s_u, f_l, f_u, d_l, d_u, p_l, p_u, m_l, m_u, w_l, w_u;
+    get_hotkey_keycodes(s_hotkey_dpy,
+                        &x_l, &x_u, &g_l, &g_u, &a_l, &a_u, &s_l, &s_u,
+                        &f_l, &f_u, &d_l, &d_u, &p_l, &p_u, &m_l, &m_u, &w_l, &w_u);
 
-    KeyCode x_kc_l = XKeysymToKeycode(s_hotkey_dpy, sym_x_l);
-    KeyCode x_kc_u = (sym_x_u != NoSymbol) ? XKeysymToKeycode(s_hotkey_dpy, sym_x_u) : 0;
-    KeyCode m_kc_l = XKeysymToKeycode(s_hotkey_dpy, sym_m_l);
-    KeyCode m_kc_u = (sym_m_u != NoSymbol) ? XKeysymToKeycode(s_hotkey_dpy, sym_m_u) : 0;
-    KeyCode g_kc_l = XKeysymToKeycode(s_hotkey_dpy, sym_g_l);
-    KeyCode g_kc_u = (sym_g_u != NoSymbol) ? XKeysymToKeycode(s_hotkey_dpy, sym_g_u) : 0;
-    KeyCode s_kc_l = XKeysymToKeycode(s_hotkey_dpy, sym_s_l);
-    KeyCode s_kc_u = (sym_s_u != NoSymbol) ? XKeysymToKeycode(s_hotkey_dpy, sym_s_u) : 0;
-    KeyCode w_kc_l = XKeysymToKeycode(s_hotkey_dpy, sym_w_l);
-    KeyCode w_kc_u = (sym_w_u != NoSymbol) ? XKeysymToKeycode(s_hotkey_dpy, sym_w_u) : 0;
+    KeyCode hotkey_kcs[] = {
+        x_l, x_u,
+        g_l, g_u,
+        a_l, a_u,
+        s_l, s_u,
+        f_l, f_u,
+        d_l, d_u,
+        p_l, p_u,
+        m_l, m_u,
+        w_l, w_u
+    };
+    size_t num_kcs = sizeof(hotkey_kcs) / sizeof(hotkey_kcs[0]);
 
-    unsigned int base_mods = ControlMask | ShiftMask | Mod1Mask;
+    unsigned int base_mods = Mod1Mask; /* Alt */
 
     for (size_t i = 0; i < NUM_LOCK_COMBOS; i++) {
         unsigned int mods = base_mods | s_lock_combos[i];
-        if (x_kc_l) XUngrabKey(s_hotkey_dpy, x_kc_l, mods, s_root);
-        if (x_kc_u) XUngrabKey(s_hotkey_dpy, x_kc_u, mods, s_root);
-        if (m_kc_l) XUngrabKey(s_hotkey_dpy, m_kc_l, mods, s_root);
-        if (m_kc_u) XUngrabKey(s_hotkey_dpy, m_kc_u, mods, s_root);
-        if (g_kc_l) XUngrabKey(s_hotkey_dpy, g_kc_l, mods, s_root);
-        if (g_kc_u) XUngrabKey(s_hotkey_dpy, g_kc_u, mods, s_root);
-        if (s_kc_l) XUngrabKey(s_hotkey_dpy, s_kc_l, mods, s_root);
-        if (s_kc_u) XUngrabKey(s_hotkey_dpy, s_kc_u, mods, s_root);
-        if (w_kc_l) XUngrabKey(s_hotkey_dpy, w_kc_l, mods, s_root);
-        if (w_kc_u) XUngrabKey(s_hotkey_dpy, w_kc_u, mods, s_root);
+        for (size_t k = 0; k < num_kcs; k++) {
+            if (hotkey_kcs[k] != 0) {
+                XUngrabKey(s_hotkey_dpy, hotkey_kcs[k], mods, s_root);
+            }
+        }
     }
     XFlush(s_hotkey_dpy);
     xutil_log("HOTKEY", "Released all passive XGrabKey grabs.");
@@ -909,9 +946,13 @@ void hotkey_sync_raw_modifiers(void) {
                      (meta_l && is_keycode_down(keys, meta_l)) || (meta_r && is_keycode_down(keys, meta_r));
 
     s_x_key_down = false;
-    s_m_key_down = false;
     s_g_key_down = false;
+    s_a_key_down = false;
     s_s_key_down = false;
+    s_f_key_down = false;
+    s_d_key_down = false;
+    s_p_key_down = false;
+    s_m_key_down = false;
     s_w_key_down = false;
 }
 

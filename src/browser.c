@@ -222,6 +222,9 @@ static GtkWidget *on_web_view_create(WebKitWebView *web_view, WebKitNavigationAc
     WebKitSettings *settings = webkit_web_view_get_settings(web_view);
     webkit_web_view_set_settings(popup, settings);
 
+    GdkRGBA bg = {0.0, 0.0, 0.0, 1.0};
+    webkit_web_view_set_background_color(popup, &bg);
+
     s_active_popup = popup;
     g_signal_connect(popup, "close", G_CALLBACK(on_popup_close), NULL);
     g_signal_connect(popup, "destroy", G_CALLBACK(on_popup_destroy), NULL);
@@ -251,6 +254,27 @@ bool browser_is_domain_allowed_for_chatgpt(const char *uri) {
         return true;
     }
 
+    /* Fast-path: Common OAuth, identity, and security challenge providers for ChatGPT */
+    if (strstr(host, "google.") != NULL ||
+        g_str_has_suffix(host, ".google.com") ||
+        g_str_has_suffix(host, "gstatic.com") ||
+        g_str_has_suffix(host, "googleusercontent.com") ||
+        g_str_has_suffix(host, "googleapis.com") ||
+        g_str_has_suffix(host, "recaptcha.net") ||
+        g_str_has_suffix(host, "cloudflare.com") ||
+        g_str_has_suffix(host, "openai.com") ||
+        g_str_has_suffix(host, "oaistatic.com") ||
+        g_str_has_suffix(host, "oaiusercontent.com") ||
+        g_str_has_suffix(host, "auth0.com") ||
+        g_str_has_suffix(host, "microsoft.com") ||
+        g_str_has_suffix(host, "microsoftonline.com") ||
+        g_str_has_suffix(host, "live.com") ||
+        g_str_has_suffix(host, "msftauth.net") ||
+        g_str_has_suffix(host, "apple.com")) {
+        g_uri_unref(parsed);
+        return true;
+    }
+
     const AppConfig *cfg = config_get();
     char list_copy[512];
     g_strlcpy(list_copy, cfg->chatgpt_allowlist, sizeof(list_copy));
@@ -273,6 +297,10 @@ bool browser_is_domain_allowed_for_chatgpt(const char *uri) {
                     allowed = true;
                     break;
                 }
+            }
+            if (strstr(host, trimmed) != NULL) {
+                allowed = true;
+                break;
             }
         }
         token = strtok_r(NULL, ",; ", &saveptr);
@@ -304,7 +332,11 @@ static gboolean on_decide_policy(WebKitWebView *web_view, WebKitPolicyDecision *
         WebKitURIRequest *req = webkit_navigation_action_get_request(action);
         if (req && web_view == s_view_chatgpt) {
             const char *uri = webkit_uri_request_get_uri(req);
-            if (uri && !browser_is_domain_allowed_for_chatgpt(uri)) {
+            bool is_auth = (uri && (strstr(uri, "oauth") || strstr(uri, "auth0") ||
+                                    strstr(uri, "accounts.google") || strstr(uri, "signin") ||
+                                    strstr(uri, "challenge") || strstr(uri, "login") ||
+                                    strstr(uri, "SetSID")));
+            if (uri && !is_auth && !browser_is_domain_allowed_for_chatgpt(uri)) {
                 xutil_log("BROWSER", "ChatGPT navigating to external domain '%s' -> Diverting to Browser app.", uri);
                 webkit_policy_decision_ignore(decision);
                 if (s_divert_cb) {
@@ -326,6 +358,9 @@ static void configure_webview(WebKitWebView *view, const AppConfig *cfg) {
     webkit_settings_set_enable_media_stream(settings, TRUE);
     webkit_settings_set_enable_webaudio(settings, TRUE);
 
+    GdkRGBA bg = {0.0, 0.0, 0.0, 1.0};
+    webkit_web_view_set_background_color(view, &bg);
+
     g_signal_connect(view, "load-changed", G_CALLBACK(on_load_changed), NULL);
     g_signal_connect(view, "notify::estimated-load-progress", G_CALLBACK(on_notify_progress), NULL);
     g_signal_connect(view, "notify::title", G_CALLBACK(on_notify_title), NULL);
@@ -335,12 +370,16 @@ static void configure_webview(WebKitWebView *view, const AppConfig *cfg) {
 }
 
 static GtkWidget *create_scrolled_container(WebKitWebView *view, int width) {
+    (void)width;
     GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
-    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
     gtk_scrolled_window_set_shadow_type(GTK_SCROLLED_WINDOW(scroll), GTK_SHADOW_NONE);
     gtk_scrolled_window_set_propagate_natural_height(GTK_SCROLLED_WINDOW(scroll), FALSE);
     gtk_scrolled_window_set_propagate_natural_width(GTK_SCROLLED_WINDOW(scroll), FALSE);
-    gtk_widget_set_size_request(scroll, width, -1);
+    gtk_widget_set_hexpand(GTK_WIDGET(view), TRUE);
+    gtk_widget_set_vexpand(GTK_WIDGET(view), TRUE);
+    gtk_widget_set_hexpand(scroll, TRUE);
+    gtk_widget_set_vexpand(scroll, TRUE);
     gtk_container_add(GTK_CONTAINER(scroll), GTK_WIDGET(view));
     return scroll;
 }
@@ -353,7 +392,7 @@ bool browser_init(void) {
     char *base_dir = g_build_filename(data_home, "phoneoverlay", NULL);
     char *data_dir = g_build_filename(base_dir, "data", NULL);
     char *cache_dir = g_build_filename(base_dir, "cache", NULL);
-    char *cookie_file = g_build_filename(base_dir, "cookies.txt", NULL);
+    char *cookie_file = g_build_filename(base_dir, "cookies.sqlite", NULL);
 
     g_mkdir_with_parents(data_dir, 0700);
     g_mkdir_with_parents(cache_dir, 0700);
@@ -365,9 +404,9 @@ bool browser_init(void) {
         NULL
     );
 
-    /* Persistent Cookies */
+    /* Persistent Cookies (SQLite for modern SameSite & Partitioned auth) */
     WebKitCookieManager *cookie_mgr = webkit_website_data_manager_get_cookie_manager(s_data_mgr);
-    webkit_cookie_manager_set_persistent_storage(cookie_mgr, cookie_file, WEBKIT_COOKIE_PERSISTENT_STORAGE_TEXT);
+    webkit_cookie_manager_set_persistent_storage(cookie_mgr, cookie_file, WEBKIT_COOKIE_PERSISTENT_STORAGE_SQLITE);
     webkit_cookie_manager_set_accept_policy(cookie_mgr, WEBKIT_COOKIE_POLICY_ACCEPT_ALWAYS);
 
     /* 3. Create WebKitWebContext shared across both apps */

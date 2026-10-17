@@ -19,6 +19,7 @@ echo -e "${BLUE}    RUNNING PHASE 7 GHOST WRITER ACCEPTANCE TEST SUITE (C1 - C4)
 echo -e "${BLUE}========================================================================${NC}"
 
 # Cleanup any stray instances
+pkill -9 -f phoneoverlay-supervisor 2>/dev/null || true
 killall -9 phoneoverlay xed 2>/dev/null || true
 sleep 0.5
 
@@ -60,7 +61,7 @@ if ! grep -q "Ghost Writer subsystem initialized on dedicated Display (XTEST" "$
     echo -e "${RED}C1 FAIL: Ghost Writer XTEST subsystem not initialized in log!${NC}"
     exit 1
 fi
-if ! grep -q "Ctrl+Shift+Alt+x/m/g/s/w" "$LOG_FILE"; then
+if ! grep -q "Alt+x/g/a/s/f/d/m/w" "$LOG_FILE"; then
     echo -e "${RED}C1 FAIL: Hotkey 'w' not registered in log!${NC}"
     exit 1
 fi
@@ -107,9 +108,9 @@ if [ "$ENTRY_VAL" != "$INJECT_TEXT" ]; then
     exit 1
 fi
 
-# Trigger Ghost Writer via hotkey Ctrl+Shift+Alt+W
-echo "Triggering Ghost Writer via hotkey Ctrl+Shift+Alt+W..."
-xdotool key ctrl+shift+alt+w
+# Trigger Ghost Writer via hotkey Alt+W
+echo "Triggering Ghost Writer via hotkey Alt+W..."
+xdotool key alt+w
 sleep 1.2
 
 POST_FOCUS=$(xdotool getwindowfocus)

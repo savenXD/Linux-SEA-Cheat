@@ -1,0 +1,121 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# phone-overlay: Fast terminal shortcut and controller for PhoneOverlay
+#
+# Usage:
+#   phone-overlay           Bring up overlay (launch daemon in background if not running)
+#   phone-overlay kill      Kill running overlay daemon cleanly
+#   phone-overlay toggle    Toggle visibility
+#   phone-overlay status    Print current overlay status
+#   phone-overlay snap      Capture screenshot (Alt+P)
+#   phone-overlay <args>    Pass any other argument to phoneoverlay
+# ==============================================================================
+set -euo pipefail
+
+BIN_PATH="${HOME}/.local/bin/phoneoverlay"
+if [ ! -x "$BIN_PATH" ]; then
+    DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+    if [ -x "$DIR/bin/phoneoverlay" ]; then
+        BIN_PATH="$DIR/bin/phoneoverlay"
+    else
+        BIN_PATH="phoneoverlay"
+    fi
+fi
+
+DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/phoneoverlay"
+SOCK_PATH="$DATA_DIR/ipc.sock"
+LOG_FILE="$DATA_DIR/phoneoverlay.log"
+mkdir -p "$DATA_DIR"
+
+ACTION="${1:-}"
+
+case "$ACTION" in
+    ""|"show"|"--show")
+        # 1. If socket exists and daemon is responsive, bring it up via IPC
+        if [ -S "$SOCK_PATH" ]; then
+            if "$BIN_PATH" --show 2>/dev/null; then
+                exit 0
+            fi
+        fi
+
+        # 2. Check if a hanging process without active socket exists; clean up if so
+        if pgrep -x phoneoverlay >/dev/null 2>&1; then
+            if "$BIN_PATH" --show 2>/dev/null; then
+                exit 0
+            fi
+            pkill -x phoneoverlay 2>/dev/null || true
+            rm -f "$SOCK_PATH" 2>/dev/null || true
+            sleep 0.2
+        fi
+
+        # 3. Not running: launch in background detached
+        setsid "$BIN_PATH" --show >>"$LOG_FILE" 2>&1 &
+        BG_PID=$!
+        disown "$BG_PID" 2>/dev/null || true
+
+        # Wait up to 3 seconds for IPC to be fully responsive
+        for i in {1..30}; do
+            if "$BIN_PATH" status >/dev/null 2>&1; then
+                echo "PhoneOverlay: Started and brought up."
+                exit 0
+            fi
+            sleep 0.1
+        done
+
+        if kill -0 "$BG_PID" 2>/dev/null; then
+            echo "PhoneOverlay: Started and brought up."
+            exit 0
+        else
+            echo "PhoneOverlay: Failed to start. Check $LOG_FILE for details."
+            exit 1
+        fi
+        ;;
+
+    "kill"|"--kill"|"stop"|"--stop"|"quit"|"--quit")
+        KILLED=0
+
+        # Try graceful IPC kill first
+        if [ -S "$SOCK_PATH" ]; then
+            if "$BIN_PATH" --kill >/dev/null 2>&1; then
+                KILLED=1
+            fi
+        fi
+
+        # Stop supervisor script so it won't auto-respawn
+        if pgrep -f phoneoverlay-supervisor >/dev/null 2>&1; then
+            pkill -f phoneoverlay-supervisor 2>/dev/null || true
+            KILLED=1
+        fi
+
+        # Wait up to 1 second for graceful exit
+        for i in {1..10}; do
+            if ! pgrep -x phoneoverlay >/dev/null 2>&1; then
+                break
+            fi
+            sleep 0.1
+        done
+
+        # If still running, terminate processes
+        if pgrep -x phoneoverlay >/dev/null 2>&1; then
+            pkill -TERM -x phoneoverlay 2>/dev/null || true
+            sleep 0.2
+            if pgrep -x phoneoverlay >/dev/null 2>&1; then
+                pkill -KILL -x phoneoverlay 2>/dev/null || true
+            fi
+            KILLED=1
+        fi
+
+        rm -f "$SOCK_PATH" 2>/dev/null || true
+
+        if [ "$KILLED" -eq 1 ]; then
+            echo "PhoneOverlay: Killed."
+        else
+            echo "PhoneOverlay is not running."
+        fi
+        ;;
+
+    *)
+        # Forward any other command to the binary
+        exec "$BIN_PATH" "$@"
+        ;;
+esac

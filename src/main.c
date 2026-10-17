@@ -22,6 +22,8 @@ static GIOChannel *s_ipc_channel = NULL;
 static guint       s_ipc_watch_id = 0;
 static char        s_ipc_sock_path[1024] = {0};
 
+static gboolean on_shutdown_signal(gpointer user_data);
+
 static void get_ipc_socket_path(char *out, size_t size) {
     const char *data_dir = g_get_user_data_dir();
     snprintf(out, size, "%s/phoneoverlay/ipc.sock", data_dir);
@@ -59,9 +61,13 @@ static bool send_ipc_command(const char *cmd, char *response_out, size_t respons
 
     /* Read response */
     if (response_out && response_size > 0) {
-        ssize_t n = read(fd, response_out, response_size - 1);
-        if (n > 0) response_out[n] = '\0';
-        else response_out[0] = '\0';
+        size_t total = 0;
+        while (total + 1 < response_size) {
+            ssize_t n = read(fd, response_out + total, response_size - 1 - total);
+            if (n <= 0) break;
+            total += n;
+        }
+        response_out[total] = '\0';
     }
 
     close(fd);
@@ -78,12 +84,13 @@ static gboolean on_ipc_client_connected(GIOChannel *source, GIOCondition conditi
     int client_fd = accept(s_ipc_listen_fd, NULL, NULL);
     if (client_fd < 0) return G_SOURCE_CONTINUE;
 
-    char buf[1024] = {0};
-    ssize_t n = read(client_fd, buf, sizeof(buf) - 1);
+    size_t buf_cap = 131072;
+    char *buf = g_malloc0(buf_cap);
+    ssize_t n = read(client_fd, buf, buf_cap - 1);
     if (n > 0) {
         buf[n] = '\0';
         char *line = g_strstrip(buf);
-        xutil_log("IPC", "Received command: '%s'", line);
+        xutil_log("IPC", "Received command: '%.64s%s'", line, strlen(line) > 64 ? "..." : "");
 
         char resp[512] = "OK\n";
 
@@ -93,6 +100,17 @@ static gboolean on_ipc_client_connected(GIOChannel *source, GIOCondition conditi
             overlay_show();
         } else if (g_ascii_strcasecmp(line, "HIDE") == 0) {
             overlay_hide();
+        } else if (g_ascii_strcasecmp(line, "KILL") == 0 ||
+                   g_ascii_strcasecmp(line, "QUIT") == 0 ||
+                   g_ascii_strcasecmp(line, "EXIT") == 0) {
+            xutil_log("MAIN", "Termination requested via IPC.");
+            snprintf(resp, sizeof(resp), "OK\n");
+            ssize_t w = write(client_fd, resp, strlen(resp));
+            (void)w;
+            g_free(buf);
+            close(client_fd);
+            g_idle_add(on_shutdown_signal, NULL);
+            return G_SOURCE_CONTINUE;
         } else if (g_ascii_strcasecmp(line, "MODE mirror") == 0) {
             input_set_key_mode(KEY_MODE_MIRROR);
         } else if (g_ascii_strcasecmp(line, "MODE exclusive") == 0) {
@@ -121,7 +139,15 @@ static gboolean on_ipc_client_connected(GIOChannel *source, GIOCondition conditi
         } else if (g_ascii_strcasecmp(line, "RELOAD") == 0) {
             overlay_reload();
         } else if (g_ascii_strcasecmp(line, "GET_TEST_ENTRY") == 0) {
-            snprintf(resp, sizeof(resp), "%s\n", overlay_get_test_entry_text());
+            const char *entry_txt = overlay_get_test_entry_text();
+            size_t elen = strlen(entry_txt);
+            ssize_t w = write(client_fd, entry_txt, elen);
+            (void)w;
+            w = write(client_fd, "\n", 1);
+            (void)w;
+            g_free(buf);
+            close(client_fd);
+            return G_SOURCE_CONTINUE;
         } else if (g_ascii_strcasecmp(line, "CLEAR_TEST_ENTRY") == 0) {
             overlay_clear_entry_text();
         } else if (g_str_has_prefix(line, "SET_TEST_ENTRY")) {
@@ -138,6 +164,24 @@ static gboolean on_ipc_client_connected(GIOChannel *source, GIOCondition conditi
             ghost_writer_run();
         } else if (g_ascii_strcasecmp(line, "PASTE") == 0) {
             overlay_execute_clipboard_action(CLIPBOARD_ACTION_PASTE);
+        } else if (g_str_has_prefix(line, "SET_OPACITY ")) {
+            double op = g_ascii_strtod(line + 12, NULL);
+            overlay_set_opacity(op);
+        } else if (g_ascii_strcasecmp(line, "GET_OPACITY") == 0) {
+            snprintf(resp, sizeof(resp), "%.2f\n", overlay_get_opacity());
+        } else if (g_str_has_prefix(line, "SET_SIZE ")) {
+            int w = 0, h = 0;
+            if (sscanf(line + 9, "%d %d", &w, &h) == 2) {
+                overlay_set_size(w, h);
+            }
+        } else if (g_ascii_strcasecmp(line, "FULLSCREEN") == 0) {
+            overlay_set_fullscreen();
+        } else if (g_ascii_strcasecmp(line, "DEFAULT_SIZE") == 0) {
+            overlay_set_default_size();
+        } else if (g_ascii_strcasecmp(line, "GET_GEOMETRY") == 0) {
+            int x, y, w, h;
+            overlay_get_geometry(&x, &y, &w, &h);
+            snprintf(resp, sizeof(resp), "X=%d Y=%d W=%d H=%d\n", x, y, w, h);
         } else if (g_ascii_strcasecmp(line, "RELOAD_CONFIG") == 0) {
             config_reload();
             overlay_apply_config();
@@ -159,6 +203,7 @@ static gboolean on_ipc_client_connected(GIOChannel *source, GIOCondition conditi
         (void)w;
     }
 
+    g_free(buf);
     close(client_fd);
     return G_SOURCE_CONTINUE;
 }
@@ -271,9 +316,29 @@ int main(int argc, char **argv) {
     setvbuf(stdout, NULL, _IOLBF, 0);
     setvbuf(stderr, NULL, _IONBF, 0);
 
+    /* If no arguments passed: if daemon is already running, bring it up! */
+    if (argc == 1) {
+        char resp[256] = {0};
+        if (send_ipc_command("SHOW", resp, sizeof(resp))) {
+            printf("PhoneOverlay: Brought up.\n");
+            return 0;
+        }
+    }
+
     /* Check CLI arguments first */
     for (int i = 1; i < argc; i++) {
-        if (strcmp(argv[i], "--toggle") == 0) {
+        if (strcmp(argv[i], "--kill") == 0 || strcmp(argv[i], "kill") == 0 ||
+            strcmp(argv[i], "--stop") == 0 || strcmp(argv[i], "stop") == 0 ||
+            strcmp(argv[i], "--quit") == 0 || strcmp(argv[i], "quit") == 0) {
+            char resp[256] = {0};
+            if (send_ipc_command("KILL", resp, sizeof(resp))) {
+                printf("PhoneOverlay: Killed.\n");
+                return 0;
+            } else {
+                printf("PhoneOverlay is not running.\n");
+                return 0;
+            }
+        } else if (strcmp(argv[i], "--toggle") == 0 || strcmp(argv[i], "toggle") == 0) {
             char resp[256] = {0};
             if (send_ipc_command("TOGGLE", resp, sizeof(resp))) {
                 printf("PhoneOverlay: Toggled visibility.\n");
@@ -282,7 +347,7 @@ int main(int argc, char **argv) {
                 fprintf(stderr, "Error: PhoneOverlay is not running.\n");
                 return 1;
             }
-        } else if (strcmp(argv[i], "--hide") == 0) {
+        } else if (strcmp(argv[i], "--hide") == 0 || strcmp(argv[i], "hide") == 0) {
             char resp[256] = {0};
             if (send_ipc_command("HIDE", resp, sizeof(resp))) {
                 printf("PhoneOverlay: Overlay hidden.\n");
@@ -372,19 +437,23 @@ int main(int argc, char **argv) {
                 return 1;
             }
         } else if (strcmp(argv[i], "--get-entry") == 0) {
-            char resp[256] = {0};
-            if (send_ipc_command("GET_TEST_ENTRY", resp, sizeof(resp))) {
+            size_t rsize = 131072;
+            char *resp = g_malloc0(rsize);
+            if (send_ipc_command("GET_TEST_ENTRY", resp, rsize)) {
                 printf("%s", resp);
+                g_free(resp);
                 return 0;
             } else {
+                g_free(resp);
                 fprintf(stderr, "Error: PhoneOverlay is not running.\n");
                 return 1;
             }
         } else if (strcmp(argv[i], "--set-entry") == 0 && i + 1 < argc) {
-            char cmd[2048];
-            snprintf(cmd, sizeof(cmd), "SET_TEST_ENTRY %s", argv[i + 1]);
+            char *cmd = g_strdup_printf("SET_TEST_ENTRY %s", argv[i + 1]);
             char resp[256] = {0};
-            if (send_ipc_command(cmd, resp, sizeof(resp))) {
+            bool ok = send_ipc_command(cmd, resp, sizeof(resp));
+            g_free(cmd);
+            if (ok) {
                 return 0;
             } else {
                 fprintf(stderr, "Error: PhoneOverlay is not running.\n");
@@ -415,7 +484,7 @@ int main(int argc, char **argv) {
                 fprintf(stderr, "Error: PhoneOverlay is not running.\n");
                 return 1;
             }
-        } else if (strcmp(argv[i], "--snap") == 0) {
+        } else if (strcmp(argv[i], "--snap") == 0 || strcmp(argv[i], "snap") == 0) {
             char resp[256] = {0};
             if (send_ipc_command("SNAP", resp, sizeof(resp))) {
                 return 0;
@@ -448,7 +517,36 @@ int main(int argc, char **argv) {
                 fprintf(stderr, "Error: PhoneOverlay is not running.\n");
                 return 1;
             }
-        } else if (strcmp(argv[i], "--status") == 0) {
+        } else if (strcmp(argv[i], "--opacity") == 0 && i + 1 < argc) {
+            char cmd[64];
+            snprintf(cmd, sizeof(cmd), "SET_OPACITY %s", argv[i + 1]);
+            char resp[256] = {0};
+            if (send_ipc_command(cmd, resp, sizeof(resp))) {
+                return 0;
+            } else {
+                fprintf(stderr, "Error: PhoneOverlay is not running.\n");
+                return 1;
+            }
+        } else if (strcmp(argv[i], "--size") == 0 && i + 2 < argc) {
+            char cmd[64];
+            snprintf(cmd, sizeof(cmd), "SET_SIZE %s %s", argv[i + 1], argv[i + 2]);
+            char resp[256] = {0};
+            if (send_ipc_command(cmd, resp, sizeof(resp))) {
+                return 0;
+            } else {
+                fprintf(stderr, "Error: PhoneOverlay is not running.\n");
+                return 1;
+            }
+        } else if (strcmp(argv[i], "--get-geometry") == 0) {
+            char resp[256] = {0};
+            if (send_ipc_command("GET_GEOMETRY", resp, sizeof(resp))) {
+                printf("%s", resp);
+                return 0;
+            } else {
+                fprintf(stderr, "Error: PhoneOverlay is not running.\n");
+                return 1;
+            }
+        } else if (strcmp(argv[i], "--status") == 0 || strcmp(argv[i], "status") == 0) {
             char resp[256] = {0};
             if (send_ipc_command("STATUS", resp, sizeof(resp))) {
                 printf("%s", resp);
@@ -457,35 +555,60 @@ int main(int argc, char **argv) {
                 fprintf(stderr, "Error: PhoneOverlay is not running.\n");
                 return 1;
             }
+        } else if (strcmp(argv[i], "--fullscreen") == 0) {
+            char resp[256] = {0};
+            if (send_ipc_command("FULLSCREEN", resp, sizeof(resp))) {
+                return 0;
+            } else {
+                fprintf(stderr, "Error: PhoneOverlay is not running.\n");
+                return 1;
+            }
+        } else if (strcmp(argv[i], "--default-size") == 0) {
+            char resp[256] = {0};
+            if (send_ipc_command("DEFAULT_SIZE", resp, sizeof(resp))) {
+                return 0;
+            } else {
+                fprintf(stderr, "Error: PhoneOverlay is not running.\n");
+                return 1;
+            }
         } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
-            printf("Usage: %s [OPTIONS]\n", argv[0]);
-            printf("Options:\n");
-            printf("  --show             Start with overlay visible (or show running overlay)\n");
-            printf("  --hide             Hide running overlay\n");
-            printf("  --toggle           Toggle visibility of running overlay\n");
-            printf("  --mode [m|e]       Set or cycle typing mode (mirror / exclusive)\n");
-            printf("  --ghost [on|off]   Set or toggle GHOST click-through mode\n");
-            printf("  --app <name>       Switch app view (home, chatgpt, browser)\n");
-            printf("  --load <url>       Load URL in browser\n");
-            printf("  --back             Navigate back in current app (or home if at start)\n");
-            printf("  --home             Return to two-app home screen\n");
-            printf("  --reload           Reload active webview\n");
-            printf("  --get-entry        Print current text from Test Input\n");
-            printf("  --has-modal        Query if an internal modal popup is displayed\n");
-            printf("  --close-modal      Close internal modal popup if displayed\n");
-            printf("  --snap             Capture screenshot (excluding overlay) to clipboard & disk\n");
-            printf("  --ghost-write      Trigger Ghost Writer keyboard injection\n");
-            printf("  --paste            Trigger paste into overlay (entry or active webview)\n");
-            printf("  --reload-config    Reload configuration from config.ini\n");
-            printf("  --status           Query running overlay status\n");
-            printf("  --help, -h         Show this help text\n");
+            printf("Usage: phone-overlay [OPTIONS] or %s [OPTIONS]\n", argv[0]);
+            printf("Quick commands:\n");
+            printf("  phone-overlay                 Bring up overlay (launch if not running)\n");
+            printf("  phone-overlay kill            Kill running overlay daemon\n");
+            printf("Options / Subcommands:\n");
+            printf("  --show, show                  Show / bring up overlay\n");
+            printf("  --hide, hide                  Hide running overlay\n");
+            printf("  --toggle, toggle              Toggle visibility of running overlay\n");
+            printf("  --kill, kill                  Kill running overlay daemon\n");
+            printf("  --status, status              Query running overlay status\n");
+            printf("  --snap, snap                  Capture screenshot (excluding overlay) to clipboard & disk\n");
+            printf("  --mode [m|e]                  Set or cycle typing mode (mirror / exclusive)\n");
+            printf("  --ghost [on|off]              Set or toggle GHOST click-through mode\n");
+            printf("  --app <name>                  Switch app view (home, chatgpt, browser)\n");
+            printf("  --load <url>                  Load URL in browser\n");
+            printf("  --back                        Navigate back in current app (or home if at start)\n");
+            printf("  --home                        Return to two-app home screen\n");
+            printf("  --reload                      Reload active webview\n");
+            printf("  --opacity <val>               Set overlay opacity (0.20 to 1.00)\n");
+            printf("  --size <w> <h>                Set overlay dimensions in pixels\n");
+            printf("  --fullscreen                  Toggle fullscreen mode\n");
+            printf("  --default-size                Reset overlay to default dimensions (360x640)\n");
+            printf("  --get-geometry                Print current overlay geometry (X, Y, W, H)\n");
+            printf("  --get-entry                   Print current text from Test Input\n");
+            printf("  --has-modal                   Query if an internal modal popup is displayed\n");
+            printf("  --close-modal                 Close internal modal popup if displayed\n");
+            printf("  --ghost-write                 Trigger Ghost Writer keyboard injection\n");
+            printf("  --paste                       Trigger paste into overlay (entry or active webview)\n");
+            printf("  --reload-config               Reload configuration from config.ini\n");
+            printf("  --help, -h                    Show this help text\n");
             return 0;
         }
     }
 
-    /* Check --show for already running instance */
+    /* Check --show or show for already running instance */
     for (int i = 1; i < argc; i++) {
-        if (strcmp(argv[i], "--show") == 0) {
+        if (strcmp(argv[i], "--show") == 0 || strcmp(argv[i], "show") == 0) {
             char resp[256] = {0};
             if (send_ipc_command("SHOW", resp, sizeof(resp))) {
                 printf("PhoneOverlay: Overlay shown.\n");
@@ -513,7 +636,7 @@ int main(int argc, char **argv) {
     const AppConfig *cfg = config_get();
     gboolean start_visible = cfg->start_visible;
     for (int i = 1; i < argc; i++) {
-        if (strcmp(argv[i], "--show") == 0) {
+        if (strcmp(argv[i], "--show") == 0 || strcmp(argv[i], "show") == 0) {
             start_visible = TRUE;
         }
     }

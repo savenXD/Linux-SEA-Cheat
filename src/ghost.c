@@ -265,6 +265,12 @@ static bool resolve_keysym_on_layout(KeySym sym, KeyMappingResult *res, KeyCode 
 }
 
 static bool inject_character(gunichar c, const AppConfig *cfg, KeyCode shift_kc, KeyCode altgr_kc, KeyCode spare_kc, int syms_per_kc) {
+    if (c == 0x00A0) {
+        c = ' ';
+    }
+    if (c == '\r') {
+        c = '\n';
+    }
     if (c == '\n') {
         if (g_ascii_strcasecmp(cfg->ghost_newline, "skip") == 0) return true;
         if (g_ascii_strcasecmp(cfg->ghost_newline, "space") == 0) c = ' ';
@@ -315,45 +321,90 @@ static bool inject_character(gunichar c, const AppConfig *cfg, KeyCode shift_kc,
     return true;
 }
 
+static bool is_overlay_or_child_window(Display *dpy, Window w, Window our_xid) {
+    if (!dpy || w == None || our_xid == None) return false;
+    if (w == our_xid) return true;
+
+    Window root = None, parent = None, *children = NULL;
+    unsigned int nchildren = 0;
+    Window curr = w;
+    while (curr != None) {
+        if (curr == our_xid) return true;
+        if (XQueryTree(dpy, curr, &root, &parent, &children, &nchildren) == 0) {
+            break;
+        }
+        if (children) {
+            XFree(children);
+            children = NULL;
+        }
+        if (parent == root || parent == curr) break;
+        curr = parent;
+    }
+    return false;
+}
+
+static char *normalize_text_for_typing(const char *input) {
+    if (!input) return g_strdup("");
+
+    GString *out = g_string_sized_new(strlen(input) + 1);
+    const char *p = input;
+
+    while (*p != '\0') {
+        gunichar c = g_utf8_get_char(p);
+        const char *next_p = g_utf8_next_char(p);
+
+        if (c == '\r') {
+            /* If CRLF, skip '\r' so '\n' represents the line break */
+            if (*next_p == '\n') {
+                p = next_p;
+                continue;
+            }
+            /* Standalone '\r' -> convert to '\n' */
+            g_string_append_c(out, '\n');
+            p = next_p;
+            continue;
+        }
+
+        /* Non-breaking space (0x00A0) -> regular space */
+        if (c == 0x00A0) {
+            g_string_append_c(out, ' ');
+            p = next_p;
+            continue;
+        }
+
+        /* Strip invisible/zero-width formatting characters */
+        if (c == 0x200B || c == 0x200C || c == 0x200D || c == 0xFEFF || c == 0x00AD) {
+            p = next_p;
+            continue;
+        }
+
+        g_string_append_unichar(out, c);
+        p = next_p;
+    }
+
+    return g_string_free(out, FALSE);
+}
+
 static Window find_target_window(char *app_name_out, size_t app_name_size) {
     if (app_name_out && app_name_size > 0) {
         app_name_out[0] = '\0';
     }
     if (!s_ghost_dpy) return None;
 
+    Window our_xid = overlay_get_xid();
+    Window root = DefaultRootWindow(s_ghost_dpy);
+
+    /* 1. Discover current input focus */
     Window focus_win = None;
     int revert_to = 0;
     XGetInputFocus(s_ghost_dpy, &focus_win, &revert_to);
 
-    if (focus_win == None || focus_win == PointerRoot) {
-        return None;
-    }
+    bool focus_is_valid = (focus_win != None &&
+                           focus_win != PointerRoot &&
+                           !is_overlay_or_child_window(s_ghost_dpy, focus_win, our_xid));
 
-    Window our_xid = overlay_get_xid();
-    if (our_xid != None) {
-        if (focus_win == our_xid) return None;
-
-        Window root = None, parent = None, *children = NULL;
-        unsigned int nchildren = 0;
-        Window curr = focus_win;
-        while (curr != None) {
-            if (curr == our_xid) return None;
-            if (XQueryTree(s_ghost_dpy, curr, &root, &parent, &children, &nchildren) == 0) {
-                break;
-            }
-            if (children) {
-                XFree(children);
-                children = NULL;
-            }
-            if (parent == root || parent == curr) break;
-            curr = parent;
-        }
-    }
-
-    /* Query _NET_ACTIVE_WINDOW for window metadata */
-    Window target_app_win = focus_win;
-    Window root = DefaultRootWindow(s_ghost_dpy);
-
+    /* 2. Query _NET_ACTIVE_WINDOW as candidate / fallback */
+    Window active_w = None;
     Atom net_active = XInternAtom(s_ghost_dpy, "_NET_ACTIVE_WINDOW", True);
     if (net_active != None) {
         Atom actual_type;
@@ -364,19 +415,38 @@ static Window find_target_window(char *app_name_out, size_t app_name_size) {
                                XA_WINDOW, &actual_type, &actual_format,
                                &nitems, &bytes_after, &prop) == Success && prop) {
             if (nitems > 0) {
-                Window active_w = *(Window *)prop;
-                if (active_w != None && active_w != our_xid) {
-                    target_app_win = active_w;
+                Window cand = *(Window *)prop;
+                if (cand != None && cand != our_xid && !is_overlay_or_child_window(s_ghost_dpy, cand, our_xid)) {
+                    /* Verify candidate window is alive and viewable */
+                    XWindowAttributes attrs;
+                    if (XGetWindowAttributes(s_ghost_dpy, cand, &attrs) != 0 &&
+                        attrs.map_state == IsViewable) {
+                        active_w = cand;
+                    }
                 }
             }
             XFree(prop);
         }
     }
 
+    Window target_win = None;
+    if (focus_is_valid) {
+        target_win = focus_win;
+    } else if (active_w != None) {
+        target_win = active_w;
+        /* Re-assert input focus to the active application */
+        XSetInputFocus(s_ghost_dpy, target_win, RevertToParent, CurrentTime);
+        XSync(s_ghost_dpy, False);
+        xutil_log("GHOST", "Assigned focus to active desktop window 0x%lx (_NET_ACTIVE_WINDOW fallback).", (unsigned long)target_win);
+    } else {
+        return None;
+    }
+
+    /* Query WM_CLASS / name for toast message */
+    Window probe = (active_w != None) ? active_w : target_win;
     XClassHint ch;
     memset(&ch, 0, sizeof(ch));
     bool got_class = false;
-    Window probe = target_app_win;
     while (probe != None && probe != root) {
         if (XGetClassHint(s_ghost_dpy, probe, &ch) != 0) {
             got_class = true;
@@ -401,7 +471,7 @@ static Window find_target_window(char *app_name_out, size_t app_name_size) {
         snprintf(app_name_out, app_name_size, "app");
     }
 
-    return focus_win;
+    return target_win;
 }
 
 static gboolean on_ghost_typing_step(gpointer user_data) {
@@ -501,9 +571,18 @@ void ghost_writer_run(void) {
     }
 
     /* 1. Retrieve text from overlay test entry */
-    const char *text = overlay_get_test_entry_text();
-    if (!text || text[0] == '\0') {
+    const char *raw_text = overlay_get_test_entry_text();
+    if (!raw_text || raw_text[0] == '\0') {
         xutil_log("GHOST", "Triggered with empty input box.");
+        overlay_set_ghost_button_state(GHOST_BTN_FAILED);
+        overlay_show_toast("Nothing to type");
+        return;
+    }
+
+    char *text = normalize_text_for_typing(raw_text);
+    if (!text || text[0] == '\0') {
+        xutil_log("GHOST", "Triggered with empty normalized text.");
+        g_free(text);
         overlay_set_ghost_button_state(GHOST_BTN_FAILED);
         overlay_show_toast("Nothing to type");
         return;
@@ -511,9 +590,10 @@ void ghost_writer_run(void) {
 
     const AppConfig *cfg = config_get();
     size_t char_count = g_utf8_strlen(text, -1);
-    int max_chars = (cfg->ghost_max_chars > 0) ? cfg->ghost_max_chars : 2000;
+    int max_chars = (cfg->ghost_max_chars > 0) ? cfg->ghost_max_chars : 1000000;
     if ((int)char_count > max_chars) {
         xutil_log("GHOST", "Text exceeds limit (%zu > %d chars).", char_count, max_chars);
+        g_free(text);
         overlay_set_ghost_button_state(GHOST_BTN_FAILED);
         char toast_err[128];
         snprintf(toast_err, sizeof(toast_err), "Text too long (max %d)", max_chars);
@@ -531,6 +611,7 @@ void ghost_writer_run(void) {
     Window target_win = find_target_window(app_name, sizeof(app_name));
     if (target_win == None) {
         xutil_log("GHOST", "No valid external focus window found.");
+        g_free(text);
         overlay_set_ghost_button_state(GHOST_BTN_FAILED);
         overlay_show_toast("No focused app");
         return;
@@ -597,10 +678,17 @@ void ghost_writer_run(void) {
 
     /* 7. Dispatch typing: Instant or Delayed */
     if (cfg->ghost_delay_ms <= 0) {
+        s_is_typing = true;
         overlay_set_ghost_button_state(GHOST_BTN_TYPING);
+
+        /* Pump GTK events to immediately render the TYPING state */
+        while (gtk_events_pending()) {
+            gtk_main_iteration_do(FALSE);
+        }
 
         size_t typed = 0;
         const char *p = text;
+        bool was_cancelled = false;
         while (*p != '\0') {
             gunichar c = g_utf8_get_char(p);
             inject_character(c, cfg, shift_kc, altgr_kc, spare_kc, syms_per_kc);
@@ -610,6 +698,13 @@ void ghost_writer_run(void) {
             if ((typed % 16) == 0) {
                 XFlush(s_ghost_dpy);
                 XSync(s_ghost_dpy, False);
+                while (gtk_events_pending()) {
+                    gtk_main_iteration_do(FALSE);
+                }
+                if (!s_is_typing) {
+                    was_cancelled = true;
+                    break;
+                }
             }
         }
         XFlush(s_ghost_dpy);
@@ -622,24 +717,28 @@ void ghost_writer_run(void) {
         }
         restore_spare_keycode(spare_kc, syms_per_kc);
         disengage_guard_delayed();
+        s_is_typing = false;
 
-        overlay_set_ghost_button_state(GHOST_BTN_DONE);
+        if (!was_cancelled) {
+            overlay_set_ghost_button_state(GHOST_BTN_DONE);
 
-        char toast_msg[256];
-        if (app_name[0] != '\0' && strcmp(app_name, "app") != 0) {
-            snprintf(toast_msg, sizeof(toast_msg), "Typed %zu chars in %s", typed, app_name);
-        } else {
-            snprintf(toast_msg, sizeof(toast_msg), "Typed %zu chars", typed);
+            char toast_msg[256];
+            if (app_name[0] != '\0' && strcmp(app_name, "app") != 0) {
+                snprintf(toast_msg, sizeof(toast_msg), "Typed %zu chars in %s", typed, app_name);
+            } else {
+                snprintf(toast_msg, sizeof(toast_msg), "Typed %zu chars", typed);
+            }
+            overlay_show_toast(toast_msg);
+            xutil_log("GHOST", "Successfully injected %zu characters into target window.", typed);
         }
-        overlay_show_toast(toast_msg);
-        xutil_log("GHOST", "Successfully injected %zu characters into target window.", typed);
+        g_free(text);
     } else {
         /* Delayed mode state machine */
         s_is_typing = true;
         overlay_set_ghost_button_state(GHOST_BTN_TYPING);
 
         s_typing_ctx = g_new0(GhostTypingContext, 1);
-        s_typing_ctx->text = g_strdup(text);
+        s_typing_ctx->text = text; /* takes ownership of text */
         s_typing_ctx->curr_ptr = s_typing_ctx->text;
         s_typing_ctx->total_chars = char_count;
         s_typing_ctx->typed_chars = 0;

@@ -17,7 +17,7 @@ static void set_defaults(AppConfig *cfg) {
     cfg->margin = 12;
     g_strlcpy(cfg->corner, "bottom-left", sizeof(cfg->corner));
     g_strlcpy(cfg->monitor, "primary", sizeof(cfg->monitor));
-    cfg->opacity = 0.98;
+    cfg->opacity = 1.0;
     cfg->start_visible = false;
     cfg->default_key_mode = KEY_MODE_MIRROR;
 
@@ -27,13 +27,13 @@ static void set_defaults(AppConfig *cfg) {
               "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36",
               sizeof(cfg->user_agent));
     g_strlcpy(cfg->chatgpt_allowlist,
-              "chatgpt.com,openai.com,auth0.com,apple.com,google.com,microsoft.com,live.com",
+              "chatgpt.com,openai.com,oaistatic.com,oaiusercontent.com,auth0.com,google.com,google.co.in,gstatic.com,googleusercontent.com,googleapis.com,recaptcha.net,cloudflare.com,challenges.cloudflare.com,microsoft.com,microsoftonline.com,live.com,msftauth.net,apple.com",
               sizeof(cfg->chatgpt_allowlist));
 
     cfg->toggle_key = 'x';
     cfg->mode_key = 'm';
     cfg->ghost_key = 'g';
-    cfg->snap_key = 's';
+    cfg->snap_key = 'p';
     cfg->shield_clipboard_keys = true;
 
     g_strlcpy(cfg->snap_scope, "monitor", sizeof(cfg->snap_scope));
@@ -45,7 +45,7 @@ static void set_defaults(AppConfig *cfg) {
     cfg->ghost_delay_ms = 0;
     g_strlcpy(cfg->ghost_newline, "space", sizeof(cfg->ghost_newline));
     g_strlcpy(cfg->ghost_tab, "space", sizeof(cfg->ghost_tab));
-    cfg->ghost_max_chars = 2000;
+    cfg->ghost_max_chars = 100000;
 }
 
 static void create_default_config_file(const char *path) {
@@ -60,7 +60,7 @@ static void create_default_config_file(const char *path) {
         "corner = bottom-left\n"
         "# Options: primary or monitor index (0, 1, ...)\n"
         "monitor = primary\n"
-        "opacity = 0.98\n"
+        "opacity = 1.0\n"
         "start_visible = false\n"
         "# Options: mirror, exclusive\n"
         "default_key_mode = mirror\n"
@@ -71,11 +71,11 @@ static void create_default_config_file(const char *path) {
         "user_agent = Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36\n"
         "\n"
         "[Hotkeys]\n"
-        "# Letters to combine with Ctrl+Shift+Alt\n"
+        "# Shortcuts combine Alt + <key> (Alt+X=Toggle, Alt+G=Ghost, Alt+A/S=Opacity, Alt+F=Fullscreen, Alt+D=DefaultSize, Alt+P=Snap)\n"
         "toggle_key = x\n"
         "mode_key = m\n"
         "ghost_key = g\n"
-        "snap_key = s\n"
+        "snap_key = p\n"
         "ghost_writer_key = w\n"
         "\n"
         "[Snap]\n"
@@ -91,7 +91,7 @@ static void create_default_config_file(const char *path) {
         "ghost_newline = space\n"
         "# Options: space, tab, skip\n"
         "ghost_tab = space\n"
-        "ghost_max_chars = 2000\n";
+        "ghost_max_chars = 100000\n";
 
     char *dir = g_path_get_dirname(path);
     g_mkdir_with_parents(dir, 0755);
@@ -282,7 +282,7 @@ static void load_from_key_file(GKeyFile *kf, AppConfig *cfg) {
     g_clear_error(&err);
 
     int gmax = g_key_file_get_integer(kf, "GhostWriter", "ghost_max_chars", &err);
-    if (!err && gmax >= 1 && gmax <= 100000) {
+    if (!err && gmax >= 0 && gmax <= 5000000) {
         cfg->ghost_max_chars = gmax;
     }
     g_clear_error(&err);

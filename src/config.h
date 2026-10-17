@@ -36,7 +36,7 @@ typedef struct {
     int         ghost_delay_ms;   /* default 0 */
     char        ghost_newline[32];/* "space" (default), "return", "skip" */
     char        ghost_tab[32];    /* "space" (default), "tab", "skip" */
-    int         ghost_max_chars;  /* default 2000 */
+    int         ghost_max_chars;  /* default 100000 (0 = unlimited) */
 } AppConfig;
 
 bool              config_init(void);
