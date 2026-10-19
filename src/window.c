@@ -91,60 +91,50 @@ static const char *s_svg_close_icon =
     "<line x1=\"6\" y1=\"6\" x2=\"18\" y2=\"18\"/>"
     "</svg>";
 
+static const char *s_svg_universal_refresh_icon =
+    "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#ffffff\" stroke-width=\"2.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\">"
+    "<path d=\"M21.5 2v6h-6\"/>"
+    "<path d=\"M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67\"/>"
+    "</svg>";
+
 static const char *s_svg_chatgpt_icon =
     "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"64\" height=\"64\" viewBox=\"0 0 64 64\">"
-    "<defs>"
-    "<linearGradient id=\"cg_grad\" x1=\"0%\" y1=\"0%\" x2=\"100%\" y2=\"100%\">"
-    "<stop offset=\"0%\" stop-color=\"#18181b\"/>"
-    "<stop offset=\"60%\" stop-color=\"#09261a\"/>"
-    "<stop offset=\"100%\" stop-color=\"#043320\"/>"
-    "</linearGradient>"
-    "<linearGradient id=\"cg_glow\" x1=\"0%\" y1=\"0%\" x2=\"100%\" y2=\"100%\">"
-    "<stop offset=\"0%\" stop-color=\"#10a37f\" stop-opacity=\"0.5\"/>"
-    "<stop offset=\"100%\" stop-color=\"#059669\" stop-opacity=\"0.9\"/>"
-    "</linearGradient>"
-    "</defs>"
-    "<rect x=\"1\" y=\"1\" width=\"62\" height=\"62\" rx=\"16\" ry=\"16\" fill=\"url(#cg_grad)\" stroke=\"url(#cg_glow)\" stroke-width=\"1.5\"/>"
-    "<g transform=\"translate(32,32) scale(1.15)\">"
-    "<g fill=\"none\" stroke=\"#ffffff\" stroke-width=\"2.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\">"
-    "<path d=\"M0,-3.5 C5.5,-14.0 13.5,-10.5 12.0,-4.5 C10.5,1.5 3.5,2.5 0,3.5\"/>"
-    "<path d=\"M0,-3.5 C5.5,-14.0 13.5,-10.5 12.0,-4.5 C10.5,1.5 3.5,2.5 0,3.5\" transform=\"rotate(60)\"/>"
-    "<path d=\"M0,-3.5 C5.5,-14.0 13.5,-10.5 12.0,-4.5 C10.5,1.5 3.5,2.5 0,3.5\" transform=\"rotate(120)\"/>"
-    "<path d=\"M0,-3.5 C5.5,-14.0 13.5,-10.5 12.0,-4.5 C10.5,1.5 3.5,2.5 0,3.5\" transform=\"rotate(180)\"/>"
-    "<path d=\"M0,-3.5 C5.5,-14.0 13.5,-10.5 12.0,-4.5 C10.5,1.5 3.5,2.5 0,3.5\" transform=\"rotate(240)\"/>"
-    "<path d=\"M0,-3.5 C5.5,-14.0 13.5,-10.5 12.0,-4.5 C10.5,1.5 3.5,2.5 0,3.5\" transform=\"rotate(300)\"/>"
-    "</g>"
+    "<rect x=\"1\" y=\"1\" width=\"62\" height=\"62\" rx=\"16\" ry=\"16\" fill=\"#121214\" stroke=\"#27272a\" stroke-width=\"1.2\"/>"
+    "<g transform=\"translate(16, 16) scale(1.3333)\">"
+    "<path fill=\"#ffffff\" d=\"M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9897 5.9897 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.0729zm-9.022 12.6081a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1683a.071.071 0 0 1 .038.052v5.5826a4.504 4.504 0 0 1-4.4945 4.4947zm-9.66-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.142.0852 4.783 2.7582a.7712.7712 0 0 0 .7806 0l5.8428-3.3685v2.3324a.0804.0804 0 0 1-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1402-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1683a.0757.0757 0 0 1-.071 0l-4.8303-2.7866A4.504 4.504 0 0 1 2.3408 7.8956zm16.0993 3.8558L12.5973 8.3829l2.02-1.1636a.0757.0757 0 0 1 .071 0l4.8303 2.7913a4.4944 4.4944 0 0 1-.6765 8.1042v-5.6772a.79.79 0 0 0-.4023-.682zm2.0107-3.0231l-.142-.0852-4.7735-2.7818a.7759.7759 0 0 0-.7854 0L9.409 9.2297V6.8974a.0662.0662 0 0 1 .0284-.0615l4.8303-2.7866a4.4992 4.4992 0 0 1 6.6802 4.66zM8.3065 12.863l-2.02-1.1635a.0804.0804 0 0 1-.038-.0567V6.0748a4.4992 4.4992 0 0 1 7.3757-3.4537l-.142.0805L8.704 5.4598a.7948.7948 0 0 0-.3927.6813zm1.0976-2.3654l2.602-1.4998 2.6069 1.4998v2.9994l-2.6069 1.4997-2.602-1.4997z\"/>"
     "</g>"
     "</svg>";
 
 static const char *s_svg_browser_icon =
     "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"64\" height=\"64\" viewBox=\"0 0 64 64\">"
-    "<defs>"
-    "<linearGradient id=\"br_grad\" x1=\"0%\" y1=\"0%\" x2=\"100%\" y2=\"100%\">"
-    "<stop offset=\"0%\" stop-color=\"#18181b\"/>"
-    "<stop offset=\"60%\" stop-color=\"#0b2342\"/>"
-    "<stop offset=\"100%\" stop-color=\"#08305c\"/>"
-    "</linearGradient>"
-    "<linearGradient id=\"br_glow\" x1=\"0%\" y1=\"0%\" x2=\"100%\" y2=\"100%\">"
-    "<stop offset=\"0%\" stop-color=\"#38bdf8\" stop-opacity=\"0.5\"/>"
-    "<stop offset=\"100%\" stop-color=\"#2563eb\" stop-opacity=\"0.9\"/>"
-    "</linearGradient>"
-    "</defs>"
-    "<rect x=\"1\" y=\"1\" width=\"62\" height=\"62\" rx=\"16\" ry=\"16\" fill=\"url(#br_grad)\" stroke=\"url(#br_glow)\" stroke-width=\"1.5\"/>"
-    "<g transform=\"translate(32,32) scale(1.05)\">"
-    "<g fill=\"none\" stroke=\"#ffffff\" stroke-width=\"2.3\" stroke-linecap=\"round\" stroke-linejoin=\"round\">"
-    "<circle cx=\"0\" cy=\"0\" r=\"14\"/>"
-    "<line x1=\"-14\" y1=\"0\" x2=\"14\" y2=\"0\"/>"
-    "<ellipse cx=\"0\" cy=\"0\" rx=\"7\" ry=\"14\"/>"
-    "<path d=\"M-10,-8 C-5,-5.5 5,-5.5 10,-8\"/>"
-    "<path d=\"M-10,8 C-5,5.5 5,5.5 10,8\"/>"
-    "</g>"
+    "<rect x=\"1\" y=\"1\" width=\"62\" height=\"62\" rx=\"16\" ry=\"16\" fill=\"#121214\" stroke=\"#27272a\" stroke-width=\"1.2\"/>"
+    "<g transform=\"translate(16, 16) scale(1.3333)\">"
+    "<path fill=\"#ffffff\" d=\"M12 0C8.21 0 4.831 1.757 2.632 4.501l3.953 6.848A5.454 5.454 0 0 1 12 6.545h10.691A12 12 0 0 0 12 0zM1.931 5.47A11.943 11.943 0 0 0 0 12c0 6.012 4.42 10.991 10.189 11.864l3.953-6.847a5.45 5.45 0 0 1-6.865-2.29l-.031-.053-5.315-9.204zm13.541 6.13a5.453 5.453 0 0 1-1.472 5.124L8.655 23.57A11.97 11.97 0 0 0 12 24c6.627 0 12-5.373 12-12 0-.742-.068-1.468-.198-2.172H13.62l1.852 1.772zM12 7.5a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9z\"/>"
     "</g>"
     "</svg>";
 
 static const char *s_svg_resize_grip =
     "<svg viewBox=\"0 0 16 16\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\">"
     "<path d=\"M14 14L8 14M14 10L10 14M14 6L6 14\" stroke=\"#71717a\" stroke-width=\"1.5\" stroke-linecap=\"round\"/>"
+    "</svg>";
+
+static const char *s_svg_move_grip =
+    "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"8\" viewBox=\"0 0 24 8\" fill=\"none\">"
+    "<rect x=\"2\" y=\"2\" width=\"20\" height=\"4\" rx=\"2\" fill=\"#52525b\"/>"
+    "</svg>";
+
+static const char *s_svg_fullscreen_icon =
+    "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"13\" height=\"13\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#a1a1aa\" stroke-width=\"2.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\">"
+    "<polyline points=\"15 3 21 3 21 9\"/>"
+    "<polyline points=\"9 21 3 21 3 15\"/>"
+    "<line x1=\"21\" y1=\"3\" x2=\"14\" y2=\"10\"/>"
+    "<line x1=\"3\" y1=\"21\" x2=\"10\" y2=\"14\"/>"
+    "</svg>";
+
+static const char *s_svg_top_close_icon =
+    "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"13\" height=\"13\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#a1a1aa\" stroke-width=\"2.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\">"
+    "<line x1=\"18\" y1=\"6\" x2=\"6\" y2=\"18\"/>"
+    "<line x1=\"6\" y1=\"6\" x2=\"18\" y2=\"18\"/>"
     "</svg>";
 
 static GtkWidget *create_svg_image(const char *svg_str, int width, int height) {
@@ -173,15 +163,29 @@ static GtkWidget *s_progress_bar = NULL;
 static GtkWidget *s_header_box = NULL;
 
 static GtkWidget *s_test_entry = NULL;
+static GtkWidget *s_ghost_input_box = NULL;
 
+static GtkWidget *s_mode_pill_box = NULL;
+static GtkWidget *s_mode_dot = NULL;
 static GtkWidget *s_mode_pill = NULL;
-static GtkWidget *s_target_pill = NULL;
+
+static GtkWidget *s_ghost_pill_box = NULL;
+static GtkWidget *s_ghost_dot = NULL;
+static GtkWidget *s_ghost_pill_label = NULL;
+
 static GtkWidget *s_grab_pill = NULL;
+static GtkWidget *s_grab_box = NULL;
+static GtkWidget *s_grab_pill_label = NULL;
+
+static GtkWidget *s_move_handle_eb = NULL;
+static GtkWidget *s_btn_top_fullscreen = NULL;
+static GtkWidget *s_btn_top_close = NULL;
 
 static GtkWidget *s_btn_back = NULL;
 static GtkWidget *s_btn_reload = NULL;
 static GtkWidget *s_reload_stack = NULL;
 static GtkWidget *s_btn_home = NULL;
+static GtkWidget *s_btn_universal_refresh = NULL;
 static GtkWidget *s_btn_ghost = NULL;
 static GtkWidget *s_btn_ghost_stack = NULL;
 static guint      s_ghost_revert_timer = 0;
@@ -201,7 +205,7 @@ static guint      s_clock_timer_id = 0;
 static int        s_pos_x = 0;
 static int        s_pos_y = 0;
 static int        s_win_width = OVERLAY_WIDTH;
-static int        s_win_height = OVERLAY_HEIGHT;
+static int        s_win_height = OVERLAY_COMPACT_HEIGHT;
 static double     s_current_opacity = 1.0;
 static GtkWidget *s_opacity_label = NULL;
 static char       s_current_app[32] = "home";
@@ -227,6 +231,7 @@ static int s_prev_saved_h = OVERLAY_HEIGHT;
 static int s_prev_saved_x = 0;
 static int s_prev_saved_y = 0;
 static gboolean s_is_maximized = FALSE;
+static gboolean s_user_moved = FALSE;
 
 static const char *s_phone_css =
     "* {"
@@ -240,91 +245,86 @@ static const char *s_phone_css =
     "  padding: 0px;"
     "}"
     ".status-bar {"
-    "  padding: 8px 14px 6px 14px;"
+    "  padding: 6px 12px 6px 12px;"
     "  background-color: #000000;"
     "  border-top-left-radius: 34px;"
     "  border-top-right-radius: 34px;"
+    "  border-bottom: 1px solid #141417;"
     "}"
-    ".camera-island {"
-    "  background-color: #0c0c0e;"
-    "  border: 1px solid #1f1f23;"
-    "  border-radius: 12px;"
-    "  padding: 3px 12px;"
-    "}"
-    ".camera-lens {"
-    "  min-width: 8px;"
-    "  min-height: 8px;"
-    "  border-radius: 50%;"
-    "  background-color: #18181b;"
+    ".nav-pill {"
+    "  background-color: #121215;"
     "  border: 1px solid #27272a;"
+    "  border-radius: 12px;"
+    "  padding: 2px 7px;"
+    "  transition: all 120ms ease-in-out;"
     "}"
-    ".camera-speaker {"
-    "  min-width: 24px;"
-    "  min-height: 3px;"
-    "  border-radius: 2px;"
-    "  background-color: #27272a;"
-    "  margin-left: 6px;"
+    ".nav-pill:hover {"
+    "  background-color: #18181c;"
     "}"
-    ".status-badge {"
-    "  font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif;"
-    "  font-size: 10px;"
-    "  font-weight: 700;"
-    "  color: #71717a;"
-    "  letter-spacing: 0.5px;"
+    ".nav-pill-dot {"
+    "  font-size: 7px;"
+    "  margin-right: 2px;"
     "}"
-    ".pill {"
+    ".nav-pill-text {"
     "  font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif;"
     "  font-size: 9.5px;"
-    "  font-weight: 700;"
-    "  letter-spacing: 0.5px;"
-    "  padding: 3px 8px;"
+    "  font-weight: 500;"
+    "  color: #d4d4d8;"
+    "  letter-spacing: 0.3px;"
+    "}"
+    ".nav-pill.pill-mirror {"
+    "  border-color: rgba(16, 185, 129, 0.45);"
+    "}"
+    ".nav-pill.pill-mirror .nav-pill-dot {"
+    "  color: #10b981;"
+    "}"
+    ".nav-pill.pill-excl {"
+    "  border-color: rgba(245, 158, 11, 0.55);"
+    "}"
+    ".nav-pill.pill-excl .nav-pill-dot {"
+    "  color: #f59e0b;"
+    "}"
+    ".nav-pill.pill-solid {"
+    "  border-color: rgba(56, 189, 248, 0.4);"
+    "}"
+    ".nav-pill.pill-solid .nav-pill-dot {"
+    "  color: #38bdf8;"
+    "}"
+    ".nav-pill.pill-ghost {"
+    "  border-color: rgba(168, 85, 247, 0.55);"
+    "}"
+    ".nav-pill.pill-ghost .nav-pill-dot {"
+    "  color: #a855f7;"
+    "}"
+    ".nav-pill.pill-grab-alert {"
+    "  border-color: rgba(239, 68, 68, 0.6);"
+    "}"
+    ".nav-pill.pill-grab-alert .nav-pill-dot {"
+    "  color: #ef4444;"
+    "}"
+    ".move-capsule {"
+    "  padding: 4px 10px;"
+    "  border-radius: 8px;"
+    "  background-color: transparent;"
+    "  transition: all 120ms ease;"
+    "}"
+    ".move-capsule:hover {"
+    "  background-color: rgba(255, 255, 255, 0.08);"
+    "}"
+    ".top-ctrl-btn {"
+    "  background: transparent;"
+    "  border: none;"
+    "  padding: 3px 5px;"
     "  border-radius: 6px;"
-    "  border: 1px solid transparent;"
+    "  min-height: 22px;"
+    "  min-width: 22px;"
+    "  transition: all 120ms ease;"
     "}"
-    ".pill-mirror {"
-    "  background-color: #18181b;"
-    "  color: #e4e4e7;"
-    "  border: 1px solid #27272a;"
+    ".top-ctrl-btn:hover {"
+    "  background-color: rgba(255, 255, 255, 0.08);"
     "}"
-    ".pill-excl {"
-    "  background-color: #271c12;"
-    "  color: #fb923c;"
-    "  border: 1px solid #7c2d12;"
-    "}"
-    ".pill-ghost {"
-    "  background-color: #20132e;"
-    "  color: #c084fc;"
-    "  border: 1px solid #581c87;"
-    "}"
-    ".pill-target-on {"
-    "  background-color: #0e2417;"
-    "  color: #4ade80;"
-    "  border: 1px solid #166534;"
-    "}"
-    ".pill-target-off {"
-    "  background-color: #141417;"
-    "  color: #71717a;"
-    "  border: 1px solid #27272a;"
-    "}"
-    ".pill-grab-alert {"
-    "  background-color: #2b1215;"
-    "  color: #f87171;"
-    "  border: 1px solid #991b1b;"
-    "}"
-    ".pill-opacity {"
-    "  background-color: #141417;"
-    "  color: #a1a1aa;"
-    "  border: 1px solid #27272a;"
-    "  padding: 1px 4px;"
-    "}"
-    ".opacity-btn {"
-    "  color: #71717a;"
-    "  font-weight: 700;"
-    "  font-size: 11px;"
-    "  padding: 0 4px;"
-    "}"
-    ".opacity-btn:hover {"
-    "  color: #f4f4f5;"
+    ".top-close-btn:hover {"
+    "  background-color: rgba(239, 68, 68, 0.2);"
     "}"
     ".resize-grip {"
     "  opacity: 0.5;"
@@ -396,8 +396,8 @@ static const char *s_phone_css =
     ".home-search-bar {"
     "  background-color: #141417;"
     "  border: 1px solid #27272a;"
-    "  border-radius: 20px;"
-    "  padding: 10px 16px;"
+    "  border-radius: 18px;"
+    "  padding: 8px 14px;"
     "  transition: all 120ms ease;"
     "}"
     ".home-search-bar:hover {"
@@ -405,7 +405,7 @@ static const char *s_phone_css =
     "  border-color: #3f3f46;"
     "}"
     ".home-search-label {"
-    "  font-size: 12px;"
+    "  font-size: 11.5px;"
     "  color: #71717a;"
     "  font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif;"
     "}"
@@ -419,21 +419,27 @@ static const char *s_phone_css =
     ".app-button {"
     "  background: transparent;"
     "  border: none;"
-    "  padding: 8px 14px;"
-    "  border-radius: 18px;"
-    "  transition: all 120ms ease;"
+    "  padding: 4px 10px;"
+    "  border-radius: 16px;"
+    "  margin-top: 0px;"
+    "  margin-bottom: 4px;"
+    "  transition: all 150ms ease-in-out;"
     "}"
     ".app-button:hover {"
     "  background-color: rgba(255, 255, 255, 0.05);"
+    "  margin-top: -4px;"
+    "  margin-bottom: 8px;"
     "}"
     ".app-button:active {"
     "  background-color: rgba(255, 255, 255, 0.1);"
+    "  margin-top: -2px;"
+    "  margin-bottom: 6px;"
     "}"
     ".app-label {"
-    "  font-size: 12px;"
-    "  font-weight: 600;"
+    "  font-size: 11.5px;"
+    "  font-weight: 500;"
     "  color: #f4f4f5;"
-    "  margin-top: 8px;"
+    "  margin-top: 5px;"
     "  font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif;"
     "  letter-spacing: 0.2px;"
     "}"
@@ -464,7 +470,7 @@ static const char *s_phone_css =
     ".nav-button {"
     "  background: transparent;"
     "  border: none;"
-    "  padding: 6px 12px;"
+    "  padding: 6px 8px;"
     "  border-radius: 10px;"
     "  min-height: 36px;"
     "  transition: all 120ms ease;"
@@ -477,6 +483,12 @@ static const char *s_phone_css =
     "}"
     ".nav-button:disabled {"
     "  opacity: 0.3;"
+    "}"
+    ".nav-refresh-btn {"
+    "  background-color: rgba(56, 189, 248, 0.08);"
+    "}"
+    ".nav-refresh-btn:hover {"
+    "  background-color: rgba(56, 189, 248, 0.22);"
     "}"
     ".toast-box {"
     "  background-color: rgba(20, 20, 23, 0.96);"
@@ -535,10 +547,10 @@ static const char *s_phone_css =
 static void update_x11_state_properties(void) {
     if (s_xid == None) return;
     Display *xdpy = gdk_x11_display_get_xdisplay(gdk_display_get_default());
-    Atom prop_state = XInternAtom(xdpy, "_PHONEOVERLAY_STATE", False);
-    Atom prop_text = XInternAtom(xdpy, "_PHONEOVERLAY_ENTRY_TEXT", False);
-    Atom prop_url = XInternAtom(xdpy, "_PHONEOVERLAY_URL_TEXT", False);
-    Atom prop_app = XInternAtom(xdpy, "_PHONEOVERLAY_APP", False);
+    Atom prop_state = XInternAtom(xdpy, "_CRONQ_STATE", False);
+    Atom prop_text = XInternAtom(xdpy, "_CRONQ_ENTRY_TEXT", False);
+    Atom prop_url = XInternAtom(xdpy, "_CRONQ_URL_TEXT", False);
+    Atom prop_app = XInternAtom(xdpy, "_CRONQ_APP", False);
     Atom utf8_string = XInternAtom(xdpy, "UTF8_STRING", False);
 
     char state_str[128];
@@ -568,45 +580,42 @@ static void update_x11_state_properties(void) {
 void overlay_update_status_ui(void) {
     if (!s_window) return;
 
-    if (s_mode_pill) {
-        GhostMode ghost = input_get_ghost_mode();
+    /* 1. Mode Pill */
+    if (s_mode_pill_box && s_mode_pill) {
         KeyMode mode = input_get_key_mode();
-        GtkStyleContext *sc = gtk_widget_get_style_context(s_mode_pill);
+        GtkStyleContext *sc = gtk_widget_get_style_context(s_mode_pill_box);
         gtk_style_context_remove_class(sc, "pill-mirror");
         gtk_style_context_remove_class(sc, "pill-excl");
-        gtk_style_context_remove_class(sc, "pill-ghost");
 
-        if (ghost == GHOST_MODE_ON) {
-            gtk_label_set_text(GTK_LABEL(s_mode_pill), "GHOST");
-            gtk_style_context_add_class(sc, "pill-ghost");
-        } else if (mode == KEY_MODE_EXCLUSIVE) {
-            gtk_label_set_text(GTK_LABEL(s_mode_pill), "EXCLUSIVE");
+        if (mode == KEY_MODE_EXCLUSIVE) {
+            gtk_label_set_text(GTK_LABEL(s_mode_pill), "Exclusive");
             gtk_style_context_add_class(sc, "pill-excl");
         } else {
-            gtk_label_set_text(GTK_LABEL(s_mode_pill), "MIRROR");
+            gtk_label_set_text(GTK_LABEL(s_mode_pill), "Mirror");
             gtk_style_context_add_class(sc, "pill-mirror");
         }
     }
 
-    if (s_target_pill) {
-        TypingTarget target = input_get_typing_target();
-        GtkStyleContext *sc = gtk_widget_get_style_context(s_target_pill);
-        gtk_style_context_remove_class(sc, "pill-target-on");
-        gtk_style_context_remove_class(sc, "pill-target-off");
+    /* 2. Ghost Mode Pill */
+    if (s_ghost_pill_box && s_ghost_pill_label) {
+        GhostMode ghost = input_get_ghost_mode();
+        GtkStyleContext *sc = gtk_widget_get_style_context(s_ghost_pill_box);
+        gtk_style_context_remove_class(sc, "pill-solid");
+        gtk_style_context_remove_class(sc, "pill-ghost");
 
-        if (target == TYPING_TARGET_OVERLAY) {
-            gtk_label_set_text(GTK_LABEL(s_target_pill), "OVERLAY");
-            gtk_style_context_add_class(sc, "pill-target-on");
+        if (ghost == GHOST_MODE_ON) {
+            gtk_label_set_text(GTK_LABEL(s_ghost_pill_label), "Ghost");
+            gtk_style_context_add_class(sc, "pill-ghost");
         } else {
-            gtk_label_set_text(GTK_LABEL(s_target_pill), "STANDBY");
-            gtk_style_context_add_class(sc, "pill-target-off");
+            gtk_label_set_text(GTK_LABEL(s_ghost_pill_label), "Solid");
+            gtk_style_context_add_class(sc, "pill-solid");
         }
     }
 
+    /* 3. Grab Alert Pill */
     if (s_grab_pill) {
         GrabStatus grab = input_get_grab_status();
         if (grab == GRAB_STATUS_FAILED) {
-            gtk_label_set_text(GTK_LABEL(s_grab_pill), "BLOCKED");
             gtk_widget_show(s_grab_pill);
         } else {
             gtk_widget_hide(s_grab_pill);
@@ -659,8 +668,8 @@ static void calculate_monitor_position(int *out_x, int *out_y) {
         gdk_monitor_get_geometry(mon, &geom);
     }
 
-    int w = cfg->width;
-    int h = cfg->height;
+    int w = (s_win_width > 0) ? s_win_width : cfg->width;
+    int h = (s_win_height > 0) ? s_win_height : cfg->height;
     int m = cfg->margin;
 
     int x = geom.x + m;
@@ -822,6 +831,7 @@ void overlay_set_default_size(void) {
     int def_w = (cfg && cfg->width > 0) ? cfg->width : OVERLAY_WIDTH;
     int def_h = (cfg && cfg->height > 0) ? cfg->height : OVERLAY_HEIGHT;
 
+    s_user_moved = FALSE;
     calculate_monitor_position(&s_pos_x, &s_pos_y);
     gtk_window_move(GTK_WINDOW(s_window), s_pos_x, s_pos_y);
     overlay_set_size(def_w, def_h);
@@ -829,39 +839,67 @@ void overlay_set_default_size(void) {
     overlay_show_toast("Default size (360x640)");
 }
 
+void overlay_set_compact_mode(gboolean compact) {
+    if (!s_window) return;
+    if (s_is_maximized) return;
+
+    int target_h = compact ? OVERLAY_COMPACT_HEIGHT : OVERLAY_EXPANDED_HEIGHT;
+    if (s_win_height == target_h) return;
+
+    int old_h = s_win_height;
+    s_win_height = target_h;
+
+    if (s_user_moved) {
+        int diff = target_h - old_h;
+        s_pos_y -= diff;
+        if (s_pos_y < 0) s_pos_y = 0;
+    } else {
+        calculate_monitor_position(&s_pos_x, &s_pos_y);
+    }
+
+    gtk_window_resize(GTK_WINDOW(s_window), s_win_width, s_win_height);
+    if (s_root_box) {
+        gtk_widget_set_size_request(s_root_box, s_win_width, s_win_height);
+    }
+    gtk_window_move(GTK_WINDOW(s_window), s_pos_x, s_pos_y);
+
+    if (s_xid != None) {
+        Display *xdpy = gdk_x11_display_get_xdisplay(gdk_display_get_default());
+        XMoveResizeWindow(xdpy, s_xid, s_pos_x, s_pos_y, s_win_width, s_win_height);
+        XFlush(xdpy);
+    }
+    overlay_queue_draw();
+    xutil_log("WINDOW", "Set compact mode: %s (height=%d, pos_y=%d)",
+              compact ? "COMPACT" : "EXPANDED", s_win_height, s_pos_y);
+}
+
 static void on_window_size_allocate(GtkWidget *widget, GdkRectangle *allocation, gpointer user_data) {
     (void)user_data;
     (void)widget;
     if (allocation->width != s_win_width || allocation->height != s_win_height) {
+        int old_h = s_win_height;
         s_win_width = allocation->width;
         s_win_height = allocation->height;
+
+        if (!s_is_maximized) {
+            if (!s_user_moved) {
+                calculate_monitor_position(&s_pos_x, &s_pos_y);
+            } else {
+                s_pos_y -= (s_win_height - old_h);
+                if (s_pos_y < 0) s_pos_y = 0;
+            }
+            gtk_window_move(GTK_WINDOW(s_window), s_pos_x, s_pos_y);
+        }
+
         if (s_xid != None) {
             Display *xdpy = gdk_x11_display_get_xdisplay(gdk_display_get_default());
-            XResizeWindow(xdpy, s_xid, s_win_width, s_win_height);
+            XMoveResizeWindow(xdpy, s_xid, s_pos_x, s_pos_y, s_win_width, s_win_height);
             XFlush(xdpy);
         }
     }
 }
 
-static gboolean on_opacity_dec_clicked(GtkWidget *widget, GdkEventButton *event, gpointer user_data) {
-    (void)widget;
-    (void)user_data;
-    if (event->button == 1) {
-        overlay_set_opacity(s_current_opacity - 0.10);
-        return TRUE;
-    }
-    return FALSE;
-}
 
-static gboolean on_opacity_inc_clicked(GtkWidget *widget, GdkEventButton *event, gpointer user_data) {
-    (void)widget;
-    (void)user_data;
-    if (event->button == 1) {
-        overlay_set_opacity(s_current_opacity + 0.10);
-        return TRUE;
-    }
-    return FALSE;
-}
 
 static gboolean on_resize_grip_press(GtkWidget *widget, GdkEventButton *event, gpointer user_data) {
     (void)widget;
@@ -958,6 +996,7 @@ static gboolean on_header_motion_notify(GtkWidget *widget, GdkEventMotion *event
         int dy = (int)event->y_root - s_drag_start_root_y;
         s_pos_x = s_drag_start_win_x + dx;
         s_pos_y = s_drag_start_win_y + dy;
+        s_user_moved = TRUE;
         gtk_window_move(GTK_WINDOW(s_window), s_pos_x, s_pos_y);
         if (s_xid != None) {
             Display *xdpy = gdk_x11_display_get_xdisplay(gdk_display_get_default());
@@ -990,6 +1029,7 @@ static gboolean on_window_motion_notify(GtkWidget *widget, GdkEventMotion *event
         if (s_active_drag == MOVE_DRAG) {
             s_pos_x = s_drag_start_win_x + dx;
             s_pos_y = s_drag_start_win_y + dy;
+            s_user_moved = TRUE;
             gtk_window_move(GTK_WINDOW(s_window), s_pos_x, s_pos_y);
             if (s_xid != None) {
                 Display *xdpy = gdk_x11_display_get_xdisplay(gdk_display_get_default());
@@ -1162,6 +1202,11 @@ static void on_browser_state_changed(bool is_loading, bool can_back, bool can_fo
     }
 }
 
+static void on_browser_clicked(gpointer user_data) {
+    (void)user_data;
+    input_notify_native_click(NULL);
+}
+
 void overlay_switch_app(const char *app_name) {
     if (!s_stack || !app_name) return;
 
@@ -1169,16 +1214,19 @@ void overlay_switch_app(const char *app_name) {
         gtk_stack_set_visible_child_name(GTK_STACK(s_stack), "chatgpt");
         g_strlcpy(s_current_app, "chatgpt", sizeof(s_current_app));
         browser_set_active_view("chatgpt");
+        overlay_set_compact_mode(FALSE);
         xutil_log("WINDOW", "Switched view to ChatGPT app.");
     } else if (g_ascii_strcasecmp(app_name, "browser") == 0) {
         gtk_stack_set_visible_child_name(GTK_STACK(s_stack), "browser");
         g_strlcpy(s_current_app, "browser", sizeof(s_current_app));
         browser_set_active_view("browser");
+        overlay_set_compact_mode(FALSE);
         xutil_log("WINDOW", "Switched view to Browser app.");
     } else {
         gtk_stack_set_visible_child_name(GTK_STACK(s_stack), "home");
         g_strlcpy(s_current_app, "home", sizeof(s_current_app));
         browser_set_active_view("browser");
+        overlay_set_compact_mode(TRUE);
         xutil_log("WINDOW", "Switched view to Home screen.");
     }
     overlay_update_status_ui();
@@ -1227,6 +1275,48 @@ void overlay_reload(void) {
     }
 }
 
+void overlay_universal_reset(void) {
+    xutil_log("WINDOW", "Triggering Universal Reset (returning to factory-fresh state)...");
+
+    /* 1. Close any open popup modals */
+    overlay_close_popup_modal();
+
+    /* 2. Clear and hide test/ghost input entry and URL bar */
+    if (s_test_entry) {
+        gtk_entry_set_text(GTK_ENTRY(s_test_entry), "");
+    }
+    if (s_ghost_input_box) {
+        gtk_widget_hide(s_ghost_input_box);
+    }
+    if (s_url_entry) {
+        gtk_entry_set_text(GTK_ENTRY(s_url_entry), "");
+    }
+
+    s_user_moved = FALSE;
+
+    /* 3. Reset input states (mirror mode, no target, ghost mode off) */
+    input_release_grab();
+    input_set_typing_target(TYPING_TARGET_NONE);
+    input_set_key_mode(KEY_MODE_MIRROR);
+    input_set_ghost_mode(GHOST_MODE_OFF);
+    overlay_set_ghost(FALSE);
+    overlay_set_ghost_button_state(GHOST_BTN_IDLE);
+
+    /* 4. Reset browser subsystem (recreates web views with clean history) */
+    browser_universal_reset();
+
+    /* 5. Switch overlay view to home screen */
+    overlay_go_home();
+
+    /* 6. Update UI and X11 state properties */
+    overlay_update_status_ui();
+    update_x11_state_properties();
+
+    /* 7. Display confirmation toast */
+    overlay_show_toast("Cronq reset to new state");
+    xutil_log("WINDOW", "Universal Reset completed successfully.");
+}
+
 static void on_btn_back_clicked(GtkButton *btn, gpointer user_data) {
     (void)btn; (void)user_data;
     overlay_back();
@@ -1242,14 +1332,45 @@ static void on_btn_home_clicked(GtkButton *btn, gpointer user_data) {
     overlay_go_home();
 }
 
+static void on_btn_universal_refresh_clicked(GtkButton *btn, gpointer user_data) {
+    (void)btn; (void)user_data;
+    overlay_universal_reset();
+}
+
 static void on_btn_snap_clicked(GtkButton *btn, gpointer user_data) {
     (void)btn; (void)user_data;
     overlay_snap();
 }
 
+void overlay_toggle_ghost_input(void) {
+    if (!s_ghost_input_box || !s_test_entry) return;
+
+    gboolean is_visible = gtk_widget_get_visible(s_ghost_input_box);
+    const char *text = gtk_entry_get_text(GTK_ENTRY(s_test_entry));
+
+    if (!is_visible) {
+        /* 1st tap: reveal and grab focus */
+        gtk_widget_show(s_ghost_input_box);
+        gtk_widget_grab_focus(s_test_entry);
+        input_set_typing_target(TYPING_TARGET_OVERLAY);
+        overlay_show_toast("Ghost Input: Ready");
+    } else {
+        /* Already open */
+        if (!text || strlen(text) == 0) {
+            /* Input is empty -> hide it back */
+            gtk_widget_hide(s_ghost_input_box);
+            input_set_typing_target(TYPING_TARGET_NONE);
+            overlay_show_toast("Ghost Input: Closed");
+        } else {
+            /* Has text -> run ghost typer */
+            ghost_writer_run();
+        }
+    }
+}
+
 static void on_btn_ghost_clicked(GtkButton *btn, gpointer user_data) {
     (void)btn; (void)user_data;
-    ghost_writer_run();
+    overlay_toggle_ghost_input();
 }
 
 static gboolean on_ghost_revert_btn_label(gpointer user_data) {
@@ -1308,26 +1429,68 @@ void overlay_show_toast(const char *msg) {
     s_toast_timer_id = g_timeout_add(2200, on_toast_dismiss_timeout, NULL);
 }
 
+static GtkWidget *create_nav_pill(GtkWidget **out_box, GtkWidget **out_dot, GtkWidget **out_label, const char *initial_text) {
+    GtkWidget *eb = gtk_event_box_new();
+    gtk_event_box_set_visible_window(GTK_EVENT_BOX(eb), FALSE);
+
+    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
+    gtk_style_context_add_class(gtk_widget_get_style_context(box), "nav-pill");
+
+    GtkWidget *dot = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+    gtk_style_context_add_class(gtk_widget_get_style_context(dot), "nav-pill-dot");
+    gtk_box_pack_start(GTK_BOX(box), dot, FALSE, FALSE, 0);
+
+    GtkWidget *lbl = gtk_label_new(initial_text);
+    gtk_style_context_add_class(gtk_widget_get_style_context(lbl), "nav-pill-text");
+    gtk_box_pack_start(GTK_BOX(box), lbl, FALSE, FALSE, 0);
+
+    gtk_container_add(GTK_CONTAINER(eb), box);
+
+    if (out_box) *out_box = box;
+    if (out_dot) *out_dot = dot;
+    if (out_label) *out_label = lbl;
+
+    return eb;
+}
+
 static gboolean on_mode_pill_clicked(GtkWidget *widget, GdkEventButton *event, gpointer user_data) {
     (void)widget; (void)event; (void)user_data;
     input_cycle_key_mode();
+    overlay_update_status_ui();
     return TRUE;
 }
 
-static gboolean on_target_pill_clicked(GtkWidget *widget, GdkEventButton *event, gpointer user_data) {
+static gboolean on_ghost_pill_clicked(GtkWidget *widget, GdkEventButton *event, gpointer user_data) {
     (void)widget; (void)event; (void)user_data;
-    if (input_get_typing_target() == TYPING_TARGET_OVERLAY) {
-        input_set_typing_target(TYPING_TARGET_NONE);
+    if (input_get_ghost_mode() == GHOST_MODE_ON) {
+        input_set_ghost_mode(GHOST_MODE_OFF);
+        overlay_set_ghost(FALSE);
     } else {
-        input_set_typing_target(TYPING_TARGET_OVERLAY);
+        input_set_ghost_mode(GHOST_MODE_ON);
+        overlay_set_ghost(TRUE);
     }
+    overlay_update_status_ui();
     return TRUE;
+}
+
+static void on_btn_top_fullscreen_clicked(GtkButton *btn, gpointer user_data) {
+    (void)btn; (void)user_data;
+    overlay_set_fullscreen();
+}
+
+static void on_btn_top_close_clicked(GtkButton *btn, gpointer user_data) {
+    (void)btn; (void)user_data;
+    overlay_hide();
 }
 
 
 static void on_app_icon_clicked(GtkButton *btn, gpointer user_data) {
     (void)btn;
     const char *app = (const char *)user_data;
+    if (g_ascii_strcasecmp(app, "reset") == 0) {
+        overlay_universal_reset();
+        return;
+    }
     overlay_switch_app(app);
 }
 
@@ -1349,9 +1512,9 @@ static GtkWidget *create_app_icon_widget(const char *label_text, const char *app
 
     GtkWidget *img = NULL;
     if (strcmp(app_id, "chatgpt") == 0) {
-        img = create_svg_image(s_svg_chatgpt_icon, 64, 64);
+        img = create_svg_image(s_svg_chatgpt_icon, 50, 50);
     } else {
-        img = create_svg_image(s_svg_browser_icon, 64, 64);
+        img = create_svg_image(s_svg_browser_icon, 50, 50);
     }
     gtk_box_pack_start(GTK_BOX(col), img, FALSE, FALSE, 0);
 
@@ -1370,9 +1533,9 @@ static GtkWidget *create_home_page(void) {
     GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
     gtk_style_context_add_class(gtk_widget_get_style_context(box), "home-page");
 
-    /* Top spacing */
+    /* Top spacing (compact) */
     GtkWidget *top_spacer = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
-    gtk_widget_set_size_request(top_spacer, -1, 32);
+    gtk_widget_set_size_request(top_spacer, -1, 8);
     gtk_box_pack_start(GTK_BOX(box), top_spacer, FALSE, FALSE, 0);
 
     /* Search Bar Launcher */
@@ -1380,7 +1543,7 @@ static GtkWidget *create_home_page(void) {
     gtk_event_box_set_visible_window(GTK_EVENT_BOX(search_eb), FALSE);
     gtk_widget_set_margin_start(search_eb, 20);
     gtk_widget_set_margin_end(search_eb, 20);
-    gtk_widget_set_margin_bottom(search_eb, 42);
+    gtk_widget_set_margin_bottom(search_eb, 12);
 
     GtkWidget *search_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
     gtk_style_context_add_class(gtk_widget_get_style_context(search_box), "home-search-bar");
@@ -1401,19 +1564,19 @@ static GtkWidget *create_home_page(void) {
     gtk_style_context_add_class(gtk_widget_get_style_context(sec_lbl), "home-section-title");
     gtk_widget_set_halign(sec_lbl, GTK_ALIGN_START);
     gtk_widget_set_margin_start(sec_lbl, 24);
-    gtk_widget_set_margin_bottom(sec_lbl, 16);
+    gtk_widget_set_margin_bottom(sec_lbl, 6);
     gtk_box_pack_start(GTK_BOX(box), sec_lbl, FALSE, FALSE, 0);
 
-    /* App Icons Grid */
-    GtkWidget *apps_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 44);
+    /* App Icons Grid: ChatGPT and Chrome */
+    GtkWidget *apps_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 32);
     gtk_widget_set_halign(apps_box, GTK_ALIGN_CENTER);
     gtk_widget_set_valign(apps_box, GTK_ALIGN_START);
 
     GtkWidget *btn_chatgpt = create_app_icon_widget("ChatGPT", "chatgpt");
     gtk_box_pack_start(GTK_BOX(apps_box), btn_chatgpt, FALSE, FALSE, 0);
 
-    GtkWidget *btn_browser = create_app_icon_widget("Browser", "browser");
-    gtk_box_pack_start(GTK_BOX(apps_box), btn_browser, FALSE, FALSE, 0);
+    GtkWidget *btn_chrome = create_app_icon_widget("Chrome", "browser");
+    gtk_box_pack_start(GTK_BOX(apps_box), btn_chrome, FALSE, FALSE, 0);
 
     gtk_box_pack_start(GTK_BOX(box), apps_box, FALSE, FALSE, 0);
 
@@ -1475,7 +1638,7 @@ void overlay_show_popup_modal(GtkWidget *popup_view) {
 
     gtk_overlay_add_overlay(GTK_OVERLAY(s_overlay), s_popup_container);
     gtk_widget_show_all(s_popup_container);
-    xutil_log("WINDOW", "Displayed popup modal layer inside phone overlay.");
+    xutil_log("WINDOW", "Displayed popup modal layer inside cronq overlay.");
 }
 
 void overlay_close_popup_modal(void) {
@@ -1577,8 +1740,8 @@ gboolean window_init(gboolean start_visible) {
 
     /* 1. Create GTK_WINDOW_POPUP -> Sets override_redirect at X11 level */
     s_window = gtk_window_new(GTK_WINDOW_POPUP);
-    s_win_width = cfg->width;
-    s_win_height = cfg->height;
+    s_win_width = (cfg->width > 0) ? cfg->width : OVERLAY_WIDTH;
+    s_win_height = OVERLAY_COMPACT_HEIGHT;
     s_current_opacity = cfg->opacity;
 
     gtk_window_set_default_size(GTK_WINDOW(s_window), s_win_width, s_win_height);
@@ -1614,11 +1777,21 @@ gboolean window_init(gboolean start_visible) {
     gtk_widget_set_app_paintable(s_window, TRUE);
     g_signal_connect(s_window, "draw", G_CALLBACK(on_window_draw), NULL);
 
-    /* 3. Non-focus stealing policy & taskbar/pager hints */
-    gtk_window_set_accept_focus(GTK_WINDOW(s_window), FALSE);
+    /* 3. Focus policy & taskbar/pager hints */
+    gtk_window_set_accept_focus(GTK_WINDOW(s_window), TRUE);
     gtk_window_set_focus_on_map(GTK_WINDOW(s_window), FALSE);
     gtk_window_set_skip_taskbar_hint(GTK_WINDOW(s_window), TRUE);
     gtk_window_set_skip_pager_hint(GTK_WINDOW(s_window), TRUE);
+
+    /* Configure GtkSettings for perpetual cursor blinking */
+    GtkSettings *settings = gtk_settings_get_default();
+    if (settings) {
+        g_object_set(settings,
+                     "gtk-cursor-blink", TRUE,
+                     "gtk-cursor-blink-time", 1000,
+                     "gtk-cursor-blink-timeout", 2147483647,
+                     NULL);
+    }
 
     /* 4. Position window according to configuration */
     calculate_monitor_position(&s_pos_x, &s_pos_y);
@@ -1636,96 +1809,84 @@ gboolean window_init(gboolean start_visible) {
     gtk_style_context_add_class(gtk_widget_get_style_context(s_root_box), "phone-root");
     gtk_container_add(GTK_CONTAINER(s_window), s_root_box);
 
-    /* --- Status Bar --- */
+    /* --- Top Navigation / Status Bar --- */
     GtkWidget *status_bar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
     gtk_style_context_add_class(gtk_widget_get_style_context(status_bar), "status-bar");
     gtk_box_pack_start(GTK_BOX(s_root_box), status_bar, FALSE, FALSE, 0);
 
-    /* Left: Opacity Control Pill */
-    GtkWidget *opacity_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 1);
-    gtk_style_context_add_class(gtk_widget_get_style_context(opacity_box), "pill");
-    gtk_style_context_add_class(gtk_widget_get_style_context(opacity_box), "pill-opacity");
+    /* Left: Mode and Ghost Status Pills */
+    GtkWidget *left_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+    gtk_widget_set_halign(left_box, GTK_ALIGN_START);
 
-    GtkWidget *lbl_op_dec = gtk_label_new("－");
-    gtk_style_context_add_class(gtk_widget_get_style_context(lbl_op_dec), "opacity-btn");
-    GtkWidget *eb_op_dec = gtk_event_box_new();
-    gtk_event_box_set_visible_window(GTK_EVENT_BOX(eb_op_dec), FALSE);
-    gtk_widget_set_tooltip_text(eb_op_dec, "Decrease Opacity (-10%)");
-    gtk_container_add(GTK_CONTAINER(eb_op_dec), lbl_op_dec);
-    g_signal_connect(eb_op_dec, "button-press-event", G_CALLBACK(on_opacity_dec_clicked), NULL);
-    gtk_box_pack_start(GTK_BOX(opacity_box), eb_op_dec, FALSE, FALSE, 0);
+    GtkWidget *mode_pill_eb = create_nav_pill(&s_mode_pill_box, &s_mode_dot, &s_mode_pill, "Mirror");
+    g_signal_connect(mode_pill_eb, "button-press-event", G_CALLBACK(on_mode_pill_clicked), NULL);
+    gtk_widget_set_tooltip_text(mode_pill_eb, "Mode: Mirror (click to toggle Exclusive)");
+    gtk_box_pack_start(GTK_BOX(left_box), mode_pill_eb, FALSE, FALSE, 0);
 
-    char op_str[16];
-    snprintf(op_str, sizeof(op_str), "%d%%", (int)(s_current_opacity * 100.0 + 0.5));
-    s_opacity_label = gtk_label_new(op_str);
-    gtk_widget_set_tooltip_text(s_opacity_label, "Window Opacity");
-    gtk_box_pack_start(GTK_BOX(opacity_box), s_opacity_label, FALSE, FALSE, 2);
+    GtkWidget *ghost_pill_eb = create_nav_pill(&s_ghost_pill_box, &s_ghost_dot, &s_ghost_pill_label, "Solid");
+    g_signal_connect(ghost_pill_eb, "button-press-event", G_CALLBACK(on_ghost_pill_clicked), NULL);
+    gtk_widget_set_tooltip_text(ghost_pill_eb, "Ghost Mode: Solid (click to toggle Ghost)");
+    gtk_box_pack_start(GTK_BOX(left_box), ghost_pill_eb, FALSE, FALSE, 0);
 
-    GtkWidget *lbl_op_inc = gtk_label_new("＋");
-    gtk_style_context_add_class(gtk_widget_get_style_context(lbl_op_inc), "opacity-btn");
-    GtkWidget *eb_op_inc = gtk_event_box_new();
-    gtk_event_box_set_visible_window(GTK_EVENT_BOX(eb_op_inc), FALSE);
-    gtk_widget_set_tooltip_text(eb_op_inc, "Increase Opacity (+10%)");
-    gtk_container_add(GTK_CONTAINER(eb_op_inc), lbl_op_inc);
-    g_signal_connect(eb_op_inc, "button-press-event", G_CALLBACK(on_opacity_inc_clicked), NULL);
-    gtk_box_pack_start(GTK_BOX(opacity_box), eb_op_inc, FALSE, FALSE, 0);
-
-    gtk_box_pack_start(GTK_BOX(status_bar), opacity_box, FALSE, FALSE, 0);
-
-    /* Center: Hardware Camera Island (Draggable header) */
-    GtkWidget *center_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
-    gtk_box_pack_start(GTK_BOX(status_bar), center_box, TRUE, TRUE, 0);
-
-    GtkWidget *island = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
-    gtk_style_context_add_class(gtk_widget_get_style_context(island), "camera-island");
-    gtk_widget_set_halign(island, GTK_ALIGN_CENTER);
-
-    GtkWidget *lens = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
-    gtk_style_context_add_class(gtk_widget_get_style_context(lens), "camera-lens");
-    gtk_box_pack_start(GTK_BOX(island), lens, FALSE, FALSE, 0);
-
-    GtkWidget *speaker = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
-    gtk_style_context_add_class(gtk_widget_get_style_context(speaker), "camera-speaker");
-    gtk_box_pack_start(GTK_BOX(island), speaker, FALSE, FALSE, 0);
-
-    GtkWidget *header_drag_eb = gtk_event_box_new();
-    gtk_event_box_set_visible_window(GTK_EVENT_BOX(header_drag_eb), FALSE);
-    gtk_widget_set_tooltip_text(header_drag_eb, "Drag to move | Double-click to expand");
-    gtk_container_add(GTK_CONTAINER(header_drag_eb), island);
-    g_signal_connect(header_drag_eb, "button-press-event", G_CALLBACK(on_header_button_press), NULL);
-    g_signal_connect(header_drag_eb, "motion-notify-event", G_CALLBACK(on_header_motion_notify), NULL);
-    g_signal_connect(header_drag_eb, "button-release-event", G_CALLBACK(on_header_button_release), NULL);
-
-    gtk_box_pack_start(GTK_BOX(center_box), header_drag_eb, TRUE, TRUE, 0);
-
-    /* Right: Mode & Target Status Pills */
-    /* Grab Alert Pill */
-    s_grab_pill = gtk_label_new("BLOCKED");
-    gtk_style_context_add_class(gtk_widget_get_style_context(s_grab_pill), "pill");
-    gtk_style_context_add_class(gtk_widget_get_style_context(s_grab_pill), "pill-grab-alert");
-    gtk_box_pack_start(GTK_BOX(status_bar), s_grab_pill, FALSE, FALSE, 2);
+    /* Grab Alert Pill (hidden unless grab fails) */
+    s_grab_pill = create_nav_pill(&s_grab_box, NULL, &s_grab_pill_label, "Blocked");
+    if (s_grab_box) {
+        gtk_style_context_add_class(gtk_widget_get_style_context(s_grab_box), "pill-grab-alert");
+    }
+    gtk_box_pack_start(GTK_BOX(left_box), s_grab_pill, FALSE, FALSE, 0);
     gtk_widget_set_no_show_all(s_grab_pill, TRUE);
     gtk_widget_hide(s_grab_pill);
 
-    /* Mode Pill (clickable) */
-    GtkWidget *mode_eb = gtk_event_box_new();
-    gtk_event_box_set_visible_window(GTK_EVENT_BOX(mode_eb), FALSE);
-    s_mode_pill = gtk_label_new("MIRROR");
-    gtk_style_context_add_class(gtk_widget_get_style_context(s_mode_pill), "pill");
-    gtk_style_context_add_class(gtk_widget_get_style_context(s_mode_pill), "pill-mirror");
-    gtk_container_add(GTK_CONTAINER(mode_eb), s_mode_pill);
-    g_signal_connect(mode_eb, "button-press-event", G_CALLBACK(on_mode_pill_clicked), NULL);
-    gtk_box_pack_start(GTK_BOX(status_bar), mode_eb, FALSE, FALSE, 2);
+    gtk_box_pack_start(GTK_BOX(status_bar), left_box, FALSE, FALSE, 0);
 
-    /* Target Pill (clickable) */
-    GtkWidget *target_eb = gtk_event_box_new();
-    gtk_event_box_set_visible_window(GTK_EVENT_BOX(target_eb), FALSE);
-    s_target_pill = gtk_label_new("STANDBY");
-    gtk_style_context_add_class(gtk_widget_get_style_context(s_target_pill), "pill");
-    gtk_style_context_add_class(gtk_widget_get_style_context(s_target_pill), "pill-target-off");
-    gtk_container_add(GTK_CONTAINER(target_eb), s_target_pill);
-    g_signal_connect(target_eb, "button-press-event", G_CALLBACK(on_target_pill_clicked), NULL);
-    gtk_box_pack_start(GTK_BOX(status_bar), target_eb, FALSE, FALSE, 2);
+    /* Center: Move Handle */
+    GtkWidget *center_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+    gtk_box_pack_start(GTK_BOX(status_bar), center_box, TRUE, TRUE, 0);
+
+    s_move_handle_eb = gtk_event_box_new();
+    gtk_event_box_set_visible_window(GTK_EVENT_BOX(s_move_handle_eb), FALSE);
+    gtk_widget_add_events(s_move_handle_eb, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_BUTTON1_MOTION_MASK | GDK_POINTER_MOTION_MASK);
+    gtk_widget_set_tooltip_text(s_move_handle_eb, "Hold & drag to move | Double-click to expand");
+    gtk_widget_set_halign(s_move_handle_eb, GTK_ALIGN_CENTER);
+
+    GtkWidget *move_capsule = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+    gtk_style_context_add_class(gtk_widget_get_style_context(move_capsule), "move-capsule");
+    GtkWidget *grip_img = create_svg_image(s_svg_move_grip, 18, 12);
+    gtk_box_pack_start(GTK_BOX(move_capsule), grip_img, TRUE, TRUE, 0);
+    gtk_container_add(GTK_CONTAINER(s_move_handle_eb), move_capsule);
+
+    g_signal_connect(s_move_handle_eb, "button-press-event", G_CALLBACK(on_header_button_press), NULL);
+    g_signal_connect(s_move_handle_eb, "motion-notify-event", G_CALLBACK(on_header_motion_notify), NULL);
+    g_signal_connect(s_move_handle_eb, "button-release-event", G_CALLBACK(on_header_button_release), NULL);
+
+    gtk_box_pack_start(GTK_BOX(center_box), s_move_handle_eb, TRUE, TRUE, 0);
+
+    /* Right Controls: Fullscreen toggle & Close button */
+    GtkWidget *right_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
+    gtk_widget_set_halign(right_box, GTK_ALIGN_END);
+
+    s_btn_top_fullscreen = gtk_button_new();
+    gtk_widget_set_can_focus(s_btn_top_fullscreen, FALSE);
+    gtk_style_context_add_class(gtk_widget_get_style_context(s_btn_top_fullscreen), "top-ctrl-btn");
+    gtk_widget_set_tooltip_text(s_btn_top_fullscreen, "Toggle Fullscreen");
+    GtkWidget *img_fs = create_svg_image(s_svg_fullscreen_icon, 14, 14);
+    gtk_container_add(GTK_CONTAINER(s_btn_top_fullscreen), img_fs);
+    g_signal_connect(s_btn_top_fullscreen, "clicked", G_CALLBACK(on_btn_top_fullscreen_clicked), NULL);
+    g_signal_connect(s_btn_top_fullscreen, "button-press-event", G_CALLBACK(on_widget_button_press), NULL);
+    gtk_box_pack_start(GTK_BOX(right_box), s_btn_top_fullscreen, FALSE, FALSE, 0);
+
+    s_btn_top_close = gtk_button_new();
+    gtk_widget_set_can_focus(s_btn_top_close, FALSE);
+    gtk_style_context_add_class(gtk_widget_get_style_context(s_btn_top_close), "top-ctrl-btn");
+    gtk_style_context_add_class(gtk_widget_get_style_context(s_btn_top_close), "top-close-btn");
+    gtk_widget_set_tooltip_text(s_btn_top_close, "Close Overlay");
+    GtkWidget *img_close = create_svg_image(s_svg_top_close_icon, 14, 14);
+    gtk_container_add(GTK_CONTAINER(s_btn_top_close), img_close);
+    g_signal_connect(s_btn_top_close, "clicked", G_CALLBACK(on_btn_top_close_clicked), NULL);
+    g_signal_connect(s_btn_top_close, "button-press-event", G_CALLBACK(on_widget_button_press), NULL);
+    gtk_box_pack_start(GTK_BOX(right_box), s_btn_top_close, FALSE, FALSE, 0);
+
+    gtk_box_pack_end(GTK_BOX(status_bar), right_box, FALSE, FALSE, 0);
 
     /* --- Central Viewport: GtkOverlay wrapping GtkStack --- */
     s_overlay = gtk_overlay_new();
@@ -1829,18 +1990,22 @@ gboolean window_init(gboolean start_visible) {
     browser_set_state_callback(on_browser_state_changed, NULL);
     browser_set_popup_callbacks(on_browser_popup_created, on_browser_popup_closed, NULL);
     browser_set_divert_callback(on_browser_divert, NULL);
+    browser_set_click_callback(on_browser_clicked, NULL);
 
-    /* --- Persistent Test Input Box (Visible across all views) --- */
-    GtkWidget *test_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
-    gtk_style_context_add_class(gtk_widget_get_style_context(test_box), "test-input-box");
+    /* --- On-Demand Ghost Input Box (Hidden by default) --- */
+    s_ghost_input_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+    gtk_style_context_add_class(gtk_widget_get_style_context(s_ghost_input_box), "test-input-box");
 
     s_test_entry = gtk_entry_new();
     gtk_entry_set_placeholder_text(GTK_ENTRY(s_test_entry), "Type text, then tap Ghost Writer...");
     gtk_style_context_add_class(gtk_widget_get_style_context(s_test_entry), "test-input-entry");
     g_signal_connect(s_test_entry, "button-press-event", G_CALLBACK(on_widget_button_press), NULL);
     g_signal_connect(s_test_entry, "changed", G_CALLBACK(on_test_entry_changed), NULL);
-    gtk_box_pack_start(GTK_BOX(test_box), s_test_entry, FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(s_root_box), test_box, FALSE, FALSE, 0);
+    g_signal_connect_swapped(s_test_entry, "activate", G_CALLBACK(ghost_writer_run), NULL);
+    gtk_box_pack_start(GTK_BOX(s_ghost_input_box), s_test_entry, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(s_root_box), s_ghost_input_box, FALSE, FALSE, 0);
+    gtk_widget_set_no_show_all(s_ghost_input_box, TRUE);
+    gtk_widget_hide(s_ghost_input_box);
 
     /* --- Bottom Navigation Bar --- */
     GtkWidget *bottom_nav = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
@@ -1865,6 +2030,18 @@ gboolean window_init(gboolean start_visible) {
     g_signal_connect(s_btn_home, "clicked", G_CALLBACK(on_btn_home_clicked), NULL);
     g_signal_connect(s_btn_home, "button-press-event", G_CALLBACK(on_widget_button_press), NULL);
     gtk_box_pack_start(GTK_BOX(bottom_nav), s_btn_home, TRUE, TRUE, 0);
+
+    /* Universal Refresh Button (New State) */
+    s_btn_universal_refresh = gtk_button_new();
+    gtk_widget_set_can_focus(s_btn_universal_refresh, FALSE);
+    gtk_style_context_add_class(gtk_widget_get_style_context(s_btn_universal_refresh), "nav-button");
+    gtk_style_context_add_class(gtk_widget_get_style_context(s_btn_universal_refresh), "nav-refresh-btn");
+    gtk_widget_set_tooltip_text(s_btn_universal_refresh, "Universal Refresh (Reset to New State)");
+    GtkWidget *img_univ_refresh = create_svg_image(s_svg_universal_refresh_icon, 20, 20);
+    gtk_container_add(GTK_CONTAINER(s_btn_universal_refresh), img_univ_refresh);
+    g_signal_connect(s_btn_universal_refresh, "clicked", G_CALLBACK(on_btn_universal_refresh_clicked), NULL);
+    g_signal_connect(s_btn_universal_refresh, "button-press-event", G_CALLBACK(on_widget_button_press), NULL);
+    gtk_box_pack_start(GTK_BOX(bottom_nav), s_btn_universal_refresh, TRUE, TRUE, 0);
 
     /* Ghost Writer Button (Phase 7) */
     s_btn_ghost = gtk_button_new();
@@ -1993,8 +2170,12 @@ gboolean window_init(gboolean start_visible) {
     Atom net_wm_name = XInternAtom(xdpy, "_NET_WM_NAME", False);
     Atom utf8_string = XInternAtom(xdpy, "UTF8_STRING", False);
     XChangeProperty(xdpy, s_xid, net_wm_name, utf8_string, 8, PropModeReplace,
-                    (unsigned char *)"PhoneOverlay", 12);
-    XStoreName(xdpy, s_xid, "PhoneOverlay");
+                    (unsigned char *)"Cronq", 5);
+    XStoreName(xdpy, s_xid, "Cronq");
+    XClassHint class_hint;
+    class_hint.res_name = "cronq";
+    class_hint.res_class = "Cronq";
+    XSetClassHint(xdpy, s_xid, &class_hint);
 
     update_x11_state_properties();
 
@@ -2015,6 +2196,10 @@ gboolean window_init(gboolean start_visible) {
 
 void overlay_show(void) {
     if (!s_window) return;
+
+    if (!s_is_maximized && !s_user_moved) {
+        calculate_monitor_position(&s_pos_x, &s_pos_y);
+    }
 
     gtk_widget_show_all(s_window);
     gtk_widget_realize(s_window);
@@ -2048,6 +2233,7 @@ void overlay_hide(void) {
 void overlay_reposition(void) {
     if (!s_window || s_xid == None) return;
 
+    s_user_moved = FALSE;
     calculate_monitor_position(&s_pos_x, &s_pos_y);
 
     Display *xdpy = gdk_x11_display_get_xdisplay(gdk_display_get_default());
@@ -2134,6 +2320,27 @@ void overlay_set_ghost(gboolean ghost) {
     overlay_update_status_ui();
 }
 
+void overlay_set_active_focus(gboolean active) {
+    if (!s_window) return;
+    GdkWindow *gdk_win = gtk_widget_get_window(s_window);
+    if (!gdk_win) return;
+
+    GdkDisplay *disp = gdk_window_get_display(gdk_win);
+    GdkSeat *seat = gdk_display_get_default_seat(disp);
+    GdkDevice *keyboard = seat ? gdk_seat_get_keyboard(seat) : NULL;
+
+    GdkEvent *event = gdk_event_new(GDK_FOCUS_CHANGE);
+    event->focus_change.type = GDK_FOCUS_CHANGE;
+    event->focus_change.window = g_object_ref(gdk_win);
+    event->focus_change.send_event = FALSE;
+    event->focus_change.in = active;
+    if (keyboard) {
+        gdk_event_set_device(event, keyboard);
+    }
+    gdk_event_put(event);
+    gdk_event_free(event);
+}
+
 GtkWidget *overlay_get_window_widget(void) {
     return s_window;
 }
@@ -2194,9 +2401,9 @@ static void save_and_prune_snap(GdkPixbuf *pb, const AppConfig *cfg) {
     const char *pics_dir = g_get_user_special_dir(G_USER_DIRECTORY_PICTURES);
     char *dir_buf = NULL;
     if (pics_dir && pics_dir[0] != '\0') {
-        dir_buf = g_build_filename(pics_dir, "phoneoverlay", NULL);
+        dir_buf = g_build_filename(pics_dir, "cronq", NULL);
     } else {
-        dir_buf = g_build_filename(g_get_home_dir(), "Pictures", "phoneoverlay", NULL);
+        dir_buf = g_build_filename(g_get_home_dir(), "Pictures", "cronq", NULL);
     }
 
     if (g_mkdir_with_parents(dir_buf, 0755) != 0) {
@@ -2225,12 +2432,12 @@ static void save_and_prune_snap(GdkPixbuf *pb, const AppConfig *cfg) {
     GError *err = NULL;
     if (gdk_pixbuf_save(pb, filepath, "png", &err, "compression", "9", NULL)) {
         xutil_log("WINDOW", "Saved screenshot to %s", filepath);
-        unlink("/tmp/phoneoverlay_latest_snap.png");
-        if (symlink(filepath, "/tmp/phoneoverlay_latest_snap.png") != 0) {
+        unlink("/tmp/cronq_latest_snap.png");
+        if (symlink(filepath, "/tmp/cronq_latest_snap.png") != 0) {
             gchar *data = NULL;
             gsize len = 0;
             if (g_file_get_contents(filepath, &data, &len, NULL)) {
-                g_file_set_contents("/tmp/phoneoverlay_latest_snap.png", data, len, NULL);
+                g_file_set_contents("/tmp/cronq_latest_snap.png", data, len, NULL);
                 g_free(data);
             }
         }

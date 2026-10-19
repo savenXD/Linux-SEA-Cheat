@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 set -u
 
-DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/phoneoverlay"
+DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/cronq"
 CRASH_LOG="$DATA_DIR/crash.log"
-BIN_PATH="${HOME}/.local/bin/phoneoverlay"
+BIN_PATH="${HOME}/.local/bin/cronq"
 
 # Fallback to local build if not yet installed in ~/.local/bin
 if [ ! -x "$BIN_PATH" ]; then
     DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-    BIN_PATH="$DIR/bin/phoneoverlay"
+    BIN_PATH="$DIR/bin/cronq"
 fi
 
 mkdir -p "$DATA_DIR"
@@ -36,6 +36,6 @@ while true; do
         break
     fi
 
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] PhoneOverlay crashed/exited with code $EXIT_CODE. Restarting in 2s..." >> "$CRASH_LOG"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] Cronq crashed/exited with code $EXIT_CODE. Restarting in 2s..." >> "$CRASH_LOG"
     sleep 2
 done

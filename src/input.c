@@ -110,6 +110,8 @@ void input_set_typing_target(TypingTarget target) {
         }
         restart_idle_timer();
 
+        overlay_set_active_focus(TRUE);
+
         GtkWidget *win = overlay_get_window_widget();
         GtkWidget *cur = win ? gtk_window_get_focus(GTK_WINDOW(win)) : NULL;
         if (!cur) {
@@ -119,6 +121,7 @@ void input_set_typing_target(TypingTarget target) {
             }
         }
     } else {
+        overlay_set_active_focus(FALSE);
         hotkey_remove_clipboard_shield();
         if (s_grab_status == GRAB_STATUS_ACTIVE) {
             release_exclusive_grab();
@@ -217,12 +220,14 @@ void input_notify_native_click(GdkEventButton *event) {
     if (s_ghost_mode == GHOST_MODE_ON) return;
 
     input_set_typing_target(TYPING_TARGET_OVERLAY);
+    overlay_set_active_focus(TRUE);
     restart_idle_timer();
 }
 
 void input_notify_overlay_hidden(void) {
     hotkey_remove_clipboard_shield();
     input_set_typing_target(TYPING_TARGET_NONE);
+    overlay_set_active_focus(FALSE);
     release_exclusive_grab();
 }
 

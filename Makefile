@@ -3,7 +3,7 @@ CFLAGS ?= -std=gnu11 -Wall -Wextra -O2 -g
 INCLUDES = $(shell pkg-config --cflags gtk+-3.0 webkit2gtk-4.1 x11 xi xext xrandr xtst)
 LIBS = $(shell pkg-config --libs gtk+-3.0 webkit2gtk-4.1 x11 xi xext xrandr xtst) -lm
 
-TARGET = bin/phoneoverlay
+TARGET = bin/cronq
 SRCS = src/main.c src/window.c src/hotkey.c src/raise.c src/xutil.c src/input.c src/config.c src/browser.c src/ghost.c
 OBJS = $(SRCS:.c=.o)
 HEADERS = src/window.h src/hotkey.h src/raise.h src/xutil.h src/input.h src/config.h src/browser.h src/ghost.h
@@ -42,23 +42,35 @@ tests/adversary/adv3_focuslock: tests/adversary/adv3_focuslock.c
 install: $(TARGET)
 	mkdir -p $(HOME)/.local/bin
 	mkdir -p $(HOME)/.config/autostart
-	mkdir -p $(HOME)/.config/phoneoverlay
-	mkdir -p $(HOME)/.local/share/phoneoverlay
-	install -m 755 $(TARGET) $(HOME)/.local/bin/phoneoverlay
-	install -m 755 scripts/phone-overlay $(HOME)/.local/bin/phone-overlay
-	install -m 755 scripts/phoneoverlay-supervisor $(HOME)/.local/bin/phoneoverlay-supervisor
-	install -m 644 phoneoverlay.desktop $(HOME)/.config/autostart/phoneoverlay.desktop
-	@echo "Installed phoneoverlay and phone-overlay to $(HOME)/.local/bin and autostart to $(HOME)/.config/autostart."
+	mkdir -p $(HOME)/.local/share/applications
+	mkdir -p $(HOME)/.local/share/icons/hicolor/scalable/apps
+	mkdir -p $(HOME)/.config/cronq
+	mkdir -p $(HOME)/.local/share/cronq
+	install -m 755 $(TARGET) $(HOME)/.local/bin/cronq
+	install -m 755 scripts/cronq-supervisor $(HOME)/.local/bin/cronq-supervisor
+	ln -sf cronq-supervisor $(HOME)/.local/bin/cronq-superisor
+	install -m 644 cronq.desktop $(HOME)/.config/autostart/cronq.desktop
+	install -m 644 cronq.desktop $(HOME)/.local/share/applications/cronq.desktop
+	install -m 644 assets/cronq.svg $(HOME)/.local/share/icons/hicolor/scalable/apps/cronq.svg
+	@which update-desktop-database >/dev/null 2>&1 && update-desktop-database $(HOME)/.local/share/applications 2>/dev/null || true
+	@which gtk-update-icon-cache >/dev/null 2>&1 && gtk-update-icon-cache -f -t $(HOME)/.local/share/icons/hicolor 2>/dev/null || true
+	@echo "Installed cronq to $(HOME)/.local/bin, desktop entry to applications and autostart, and application icon."
 
 uninstall:
-	rm -f $(HOME)/.local/bin/phoneoverlay
-	rm -f $(HOME)/.local/bin/phone-overlay
-	rm -f $(HOME)/.local/bin/phoneoverlay-supervisor
-	rm -f $(HOME)/.config/autostart/phoneoverlay.desktop
-	@echo "Uninstalled phoneoverlay binary, supervisor, and autostart desktop entry."
+	@pkill -9 -f cronq-supervisor 2>/dev/null || true
+	@pkill -9 -f cronq 2>/dev/null || true
+	rm -f $(HOME)/.local/bin/cronq
+	rm -f $(HOME)/.local/bin/cronq-supervisor
+	rm -f $(HOME)/.local/bin/cronq-superisor
+	rm -f $(HOME)/.config/autostart/cronq.desktop
+	rm -f $(HOME)/.local/share/applications/cronq.desktop
+	rm -f $(HOME)/.local/share/icons/hicolor/scalable/apps/cronq.svg
+	@which update-desktop-database >/dev/null 2>&1 && update-desktop-database $(HOME)/.local/share/applications 2>/dev/null || true
+	@which gtk-update-icon-cache >/dev/null 2>&1 && gtk-update-icon-cache -f -t $(HOME)/.local/share/icons/hicolor 2>/dev/null || true
+	@echo "Uninstalled cronq binary, supervisor, desktop entries, and application icon."
 
 clean:
-	rm -rf bin $(OBJS) $(TEST_BINS) /tmp/phoneoverlay*.log /tmp/p3*.log /tmp/p4*.log
+	rm -rf bin $(OBJS) $(TEST_BINS) /tmp/cronq*.log /tmp/p3*.log /tmp/p4*.log /tmp/phoneoverlay*.log
 
 run: $(TARGET)
 	./$(TARGET)

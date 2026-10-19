@@ -9,8 +9,8 @@ NC='\033[0m'
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
-BIN="${ROOT_DIR}/bin/phoneoverlay"
-LOG_FILE="/tmp/phoneoverlay_test7.log"
+BIN="${ROOT_DIR}/bin/cronq"
+LOG_FILE="/tmp/cronq_test7.log"
 
 rm -f "$LOG_FILE" /tmp/test_ghost_c2.txt /tmp/test_ghost_caps.txt /tmp/test_ghost_empty.txt /tmp/test_ghost_btn.txt
 
@@ -19,8 +19,9 @@ echo -e "${BLUE}    RUNNING PHASE 7 GHOST WRITER ACCEPTANCE TEST SUITE (C1 - C4)
 echo -e "${BLUE}========================================================================${NC}"
 
 # Cleanup any stray instances
-pkill -9 -f phoneoverlay-supervisor 2>/dev/null || true
-killall -9 phoneoverlay xed 2>/dev/null || true
+pkill -9 -f cronq-supervisor 2>/dev/null || true
+pkill -9 -f cronq-superisor 2>/dev/null || true
+killall -9 cronq xed 2>/dev/null || true
 sleep 0.5
 
 # -------------------------------------------------------------------------
@@ -36,7 +37,7 @@ if echo "$BUILD_OUT" | grep -iE "warning:|error:"; then
 fi
 echo -e "${GREEN}  [C1.1 PASS] Clean build with 0 warnings and 0 errors.${NC}"
 
-# Start PhoneOverlay
+# Start Cronq
 "$BIN" --show > "$LOG_FILE" 2>&1 &
 OVERLAY_PID=$!
 sleep 1.5

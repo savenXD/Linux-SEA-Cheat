@@ -12,18 +12,18 @@ echo -e "${BLUE} RUNNING PHASE 3 ACCEPTANCE TEST SUITE (INPUT MODEL)    ${NC}"
 echo -e "${BLUE}========================================================${NC}"
 
 # Clean any existing overlay instances
-killall -9 phoneoverlay 2>/dev/null || true
+killall -9 cronq 2>/dev/null || true
 make adversaries > /dev/null 2>&1 || true
 sleep 0.5
 
 get_overlay_xid() {
-    python3 -c "import subprocess; out = subprocess.check_output(['xwininfo', '-root', '-tree']).decode(); [print(line.split()[0]) for line in out.splitlines() if 'PhoneOverlay' in line and '360x640' in line]"
+    python3 -c "import subprocess; out = subprocess.check_output(['xwininfo', '-root', '-tree']).decode(); [print(line.split()[0]) for line in out.splitlines() if 'Cronq' in line and '360x640' in line]"
 }
 
 # -------------------------------------------------------------------------
 echo -e "\n${BLUE}--- T1: Focus Invariance Verification (xed, terminal, chrome) ---${NC}"
 # -------------------------------------------------------------------------
-./bin/phoneoverlay --show > /tmp/p3_t1_overlay.log 2>&1 &
+./bin/cronq --show > /tmp/p3_t1_overlay.log 2>&1 &
 OVERLAY_PID=$!
 sleep 1
 OVERLAY_XID=$(get_overlay_xid)
@@ -88,7 +88,7 @@ echo -e "${GREEN}T1 PASS: Focus invariance verified across multiple applications
 # -------------------------------------------------------------------------
 echo -e "\n${BLUE}--- T2: MIRROR Mode Typing Verification ---${NC}"
 # -------------------------------------------------------------------------
-./bin/phoneoverlay --show > /tmp/p3_t2_overlay.log 2>&1 &
+./bin/cronq --show > /tmp/p3_t2_overlay.log 2>&1 &
 OVERLAY_PID=$!
 sleep 1
 OVERLAY_XID=$(get_overlay_xid)
@@ -108,14 +108,14 @@ sleep 0.5
 xdotool key ctrl+a BackSpace
 sleep 0.2
 
-STATE=$(xprop -id "$OVERLAY_XID" _PHONEOVERLAY_STATE)
+STATE=$(xprop -id "$OVERLAY_XID" _CRONQ_STATE)
 echo "  State: $STATE"
 
 # Type 'hello'
 xdotool type "hello"
 sleep 0.5
 
-OVERLAY_TEXT=$(xprop -id "$OVERLAY_XID" _PHONEOVERLAY_ENTRY_TEXT | awk -F'"' '{print $2}')
+OVERLAY_TEXT=$(xprop -id "$OVERLAY_XID" _CRONQ_ENTRY_TEXT | awk -F'"' '{print $2}')
 xdotool key ctrl+s
 sleep 0.5
 XED_CONTENT=$(cat "$TEST_FILE" 2>/dev/null || true)
@@ -138,7 +138,7 @@ fi
 # -------------------------------------------------------------------------
 echo -e "\n${BLUE}--- T3: EXCLUSIVE Mode Typing & Grab Release ---${NC}"
 # -------------------------------------------------------------------------
-./bin/phoneoverlay --show > /tmp/p3_t3_overlay.log 2>&1 &
+./bin/cronq --show > /tmp/p3_t3_overlay.log 2>&1 &
 OVERLAY_PID=$!
 sleep 1
 OVERLAY_XID=$(get_overlay_xid)
@@ -162,13 +162,13 @@ sleep 0.5
 xdotool key ctrl+a BackSpace
 sleep 0.2
 
-STATE=$(xprop -id "$OVERLAY_XID" _PHONEOVERLAY_STATE)
+STATE=$(xprop -id "$OVERLAY_XID" _CRONQ_STATE)
 echo "  State during exclusive typing: $STATE"
 
 # Type 'world'
 xdotool type "world"
 sleep 0.5
-OVERLAY_TEXT=$(xprop -id "$OVERLAY_XID" _PHONEOVERLAY_ENTRY_TEXT | awk -F'"' '{print $2}')
+OVERLAY_TEXT=$(xprop -id "$OVERLAY_XID" _CRONQ_ENTRY_TEXT | awk -F'"' '{print $2}')
 
 # Click outside overlay to release grab
 xdotool mousemove 800 500 click 1
@@ -183,7 +183,7 @@ xdotool key ctrl+s
 sleep 0.5
 
 XED_CONTENT=$(cat "$TEST_FILE" 2>/dev/null || true)
-OVERLAY_FINAL=$(xprop -id "$OVERLAY_XID" _PHONEOVERLAY_ENTRY_TEXT | awk -F'"' '{print $2}')
+OVERLAY_FINAL=$(xprop -id "$OVERLAY_XID" _CRONQ_ENTRY_TEXT | awk -F'"' '{print $2}')
 
 echo "  Overlay Entry: '$OVERLAY_FINAL'"
 echo "  xed file content: '$XED_CONTENT'"
@@ -235,7 +235,7 @@ rm -f /tmp/p3_under_clicks.txt
 UNDER_PID=$!
 sleep 1
 
-./bin/phoneoverlay --show > /tmp/p3_t4_overlay.log 2>&1 &
+./bin/cronq --show > /tmp/p3_t4_overlay.log 2>&1 &
 OVERLAY_PID=$!
 sleep 1
 OVERLAY_XID=$(get_overlay_xid)
@@ -275,7 +275,7 @@ fi
 # -------------------------------------------------------------------------
 echo -e "\n${BLUE}--- T5: Hostile Environment Resilience (adv2_override) ---${NC}"
 # -------------------------------------------------------------------------
-./bin/phoneoverlay --show > /tmp/p3_t5_overlay.log 2>&1 &
+./bin/cronq --show > /tmp/p3_t5_overlay.log 2>&1 &
 OVERLAY_PID=$!
 sleep 1
 OVERLAY_XID=$(get_overlay_xid)
@@ -299,7 +299,7 @@ sleep 0.5
 # Request EXCLUSIVE mode under keyboard grab (fails cleanly to MIRROR with [!GRAB])
 xdotool key ctrl+shift+alt+m
 sleep 0.5
-STATE_ADV2=$(xprop -id "$OVERLAY_XID" _PHONEOVERLAY_STATE)
+STATE_ADV2=$(xprop -id "$OVERLAY_XID" _CRONQ_STATE)
 echo "  Overlay State under adversary: $STATE_ADV2"
 
 # Type
@@ -307,7 +307,7 @@ xdotool key ctrl+a BackSpace
 sleep 0.2
 xdotool type "adv2ok"
 sleep 0.5
-ENTRY_TEXT=$(xprop -id "$OVERLAY_XID" _PHONEOVERLAY_ENTRY_TEXT | awk -F'"' '{print $2}')
+ENTRY_TEXT=$(xprop -id "$OVERLAY_XID" _CRONQ_ENTRY_TEXT | awk -F'"' '{print $2}')
 echo "  Overlay Entry under adversary: '$ENTRY_TEXT'"
 
 kill -INT $OVERLAY_PID
@@ -328,7 +328,7 @@ fi
 # -------------------------------------------------------------------------
 echo -e "\n${BLUE}--- T6: Panic Ungrab & SIGKILL Safety ---${NC}"
 # -------------------------------------------------------------------------
-./bin/phoneoverlay --show > /tmp/p3_t6_overlay.log 2>&1 &
+./bin/cronq --show > /tmp/p3_t6_overlay.log 2>&1 &
 OVERLAY_PID=$!
 sleep 1
 OVERLAY_XID=$(get_overlay_xid)
@@ -339,7 +339,7 @@ sleep 0.5
 xdotool mousemove 100 470 click 1
 sleep 0.5
 
-STATE=$(xprop -id "$OVERLAY_XID" _PHONEOVERLAY_STATE)
+STATE=$(xprop -id "$OVERLAY_XID" _CRONQ_STATE)
 echo "  Grab state before kill: $STATE"
 
 # Kill -9

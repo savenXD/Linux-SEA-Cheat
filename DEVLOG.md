@@ -1,7 +1,7 @@
-# DEVLOG: phoneoverlay
+# DEVLOG: cronq
 
 ## Project Overview
-- **Name**: phoneoverlay
+- **Name**: cronq
 - **Platform**: Linux Mint 22.3 (Zena / Ubuntu Noble base), Cinnamon, X11
 - **Architecture**:
   - C (gnu11) + GTK3 drawing/widget layer.
@@ -216,12 +216,12 @@ Command: `make test2` (which executes `tests/run_adversaries.sh`)
 To manually verify stacking dominance over real-world applications:
 1. Start the overlay in visible mode:
    ```bash
-   ~/phoneoverlay/bin/phoneoverlay --show
+   ~/cronq/bin/cronq --show
    ```
 2. Open a video in fullscreen:
    - Option A: Launch VLC with any video file in fullscreen: `vlc --fullscreen <video.mp4>`.
    - Option B: Launch Chromium/Firefox, open YouTube, and press `F` for fullscreen playback.
-3. Observe that the phoneoverlay window remains anchored and visible at the bottom-left corner over the video.
+3. Observe that the cronq window remains anchored and visible at the bottom-left corner over the video.
 4. Toggle visibility off and on using hotkey <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Alt</kbd>+<kbd>X</kbd>.
 
 ---
@@ -276,7 +276,7 @@ Command: `make test3` (which executes `tests/run_phase3_tests.sh`)
 ### User Quick-Start & Verification Instructions
 1. Start the overlay in visible mode:
    ```bash
-   ~/phoneoverlay/bin/phoneoverlay --show
+   ~/cronq/bin/cronq --show
    ```
 2. Observe the status bar badges at the top of the overlay:
    - Mode Badge: `[MIRROR]` (blue) or `[EXCL]` (orange) or `[GHOST]` (purple).
@@ -308,10 +308,10 @@ Command: `make test3` (which executes `tests/run_phase3_tests.sh`)
 
 1. **Embedded WebKitGTK 4.1 Subsystem (`src/browser.c`, `src/browser.h`)**:
    - Integrated `webkit2gtk-4.1` (v2.52.6).
-   - Configured persistent session storage under `~/.local/share/phoneoverlay`:
-     - Base data directory: `~/.local/share/phoneoverlay/data`
-     - Base cache directory: `~/.local/share/phoneoverlay/cache`
-     - Persistent cookie storage: `~/.local/share/phoneoverlay/cookies.txt` with `WEBKIT_COOKIE_POLICY_ACCEPT_ALWAYS`.
+   - Configured persistent session storage under `~/.local/share/cronq`:
+     - Base data directory: `~/.local/share/cronq/data`
+     - Base cache directory: `~/.local/share/cronq/cache`
+     - Persistent cookie storage: `~/.local/share/cronq/cookies.txt` with `WEBKIT_COOKIE_POLICY_ACCEPT_ALWAYS`.
    - Set Mobile User-Agent (`Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36`) to enforce mobile responsive layouts.
    - Verified clean rendering inside RGBA override-redirect popup on the system's Mesa Intel UHD Graphics (Compositor: Cinnamon Muffin) with zero blank/black screen defects.
    - Implemented resource conservation: automatic audio/video mute (`webkit_web_view_set_is_muted(TRUE)`) upon hiding the overlay, and unmute on show.
@@ -335,25 +335,25 @@ Command: `make test3` (which executes `tests/run_phase3_tests.sh`)
      - Detects relative coordinates and dispatches synthetic button clicks to the URL bar, WebKit view, or navigation buttons under foreign pointer grabs.
 
 4. **Configuration Engine (`src/config.c`, `src/config.h`)**:
-   - Manages `~/.config/phoneoverlay/config.ini` via `GKeyFile`.
+   - Manages `~/.config/cronq/config.ini` via `GKeyFile`.
    - Settings supported: `width`, `height`, `margin`, `corner` (`bottom-left`, `bottom-right`, `top-left`, `top-right`), `monitor` (`primary` or index), `opacity`, `start_visible`, `default_key_mode`, `home_url`, `search_url_template`, `user_agent`, `toggle_key`, `mode_key`, `ghost_key`.
    - Dynamic `SIGHUP` reload: dynamically repositions the window, updates opacity, and re-registers passive hotkey grabs without restarting the process.
 
 5. **Single-Instance Unix Domain Socket IPC (`src/main.c`)**:
-   - Socket at `~/.local/share/phoneoverlay/ipc.sock`.
+   - Socket at `~/.local/share/cronq/ipc.sock`.
    - CLI commands supported:
-     - `phoneoverlay --toggle`: toggles overlay visibility.
-     - `phoneoverlay --show`: shows overlay.
-     - `phoneoverlay --hide`: hides overlay.
-     - `phoneoverlay --mode [mirror|exclusive]`: sets or cycles input mode.
-     - `phoneoverlay --ghost [on|off]`: toggles click-through mode.
-     - `phoneoverlay --load <url>`: loads URL in browser.
-     - `phoneoverlay --reload-config`: reloads `config.ini` dynamically.
-     - `phoneoverlay --status`: queries current runtime state string.
+     - `cronq --toggle`: toggles overlay visibility.
+     - `cronq --show`: shows overlay.
+     - `cronq --hide`: hides overlay.
+     - `cronq --mode [mirror|exclusive]`: sets or cycles input mode.
+     - `cronq --ghost [on|off]`: toggles click-through mode.
+     - `cronq --load <url>`: loads URL in browser.
+     - `cronq --reload-config`: reloads `config.ini` dynamically.
+     - `cronq --status`: queries current runtime state string.
 
-6. **Crash Supervisor & Desktop Autostart (`scripts/phoneoverlay-supervisor`, `phoneoverlay.desktop`)**:
-   - `scripts/phoneoverlay-supervisor`: monitors child process, logs abnormal crashes to `~/.local/share/phoneoverlay/crash.log`, and restarts after 2s delay. Clean exits (SIGTERM/SIGINT) terminate cleanly without restart.
-   - `phoneoverlay.desktop`: standard XDG autostart file for Cinnamon.
+6. **Crash Supervisor & Desktop Autostart (`scripts/cronq-supervisor`, `cronq.desktop`)**:
+   - `scripts/cronq-supervisor`: monitors child process, logs abnormal crashes to `~/.local/share/cronq/crash.log`, and restarts after 2s delay. Clean exits (SIGTERM/SIGINT) terminate cleanly without restart.
+   - `cronq.desktop`: standard XDG autostart file for Cinnamon.
    - `make install` and `make uninstall` targets in Makefile.
 
 ---
@@ -397,12 +397,12 @@ Command: `make test3` (which executes `tests/run_phase3_tests.sh`)
 ### Architectural Accomplishments:
 1. **Zero-Self-Capture Pipeline**:
    - Unmaps overlay (`XUnmapWindow`), flushes X connection, captures screen with XGetImage / GDK, and immediately remaps overlay without flicker.
-   - Saves image to `~/Pictures/phoneoverlay/snap-YYYYMMDD-HHMMSS.png` with auto-pruning.
+   - Saves image to `~/Pictures/cronq/snap-YYYYMMDD-HHMMSS.png` with auto-pruning.
    - Automatically sets image to desktop clipboard as `image/png`.
 2. **Bottom Controls & Global Hotkey**:
    - 4th button in bottom controls bar: Snap button (`📸`).
    - Global hotkey: <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Alt</kbd>+<kbd>S</kbd>.
-   - CLI command: `phoneoverlay --snap`.
+   - CLI command: `cronq --snap`.
 
 ---
 
@@ -438,7 +438,7 @@ Command: `make test3` (which executes `tests/run_phase3_tests.sh`)
    - Instant mode (`ghost_delay_ms == 0`): Synchronous batching with `XFlush` and `XSync` every 16 characters with 1-2ms server-level event delay for reliable desktop toolkit processing.
    - Delayed mode (`ghost_delay_ms > 0`): GLib timeout state machine. Tapping button during typing cancels and releases held keys.
    - Global hotkey: <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Alt</kbd>+<kbd>W</kbd>.
-   - CLI commands: `phoneoverlay --ghost-write`, `phoneoverlay --get-entry`, `phoneoverlay --set-entry <text>`, `phoneoverlay --clear-entry`.
+   - CLI commands: `cronq --ghost-write`, `cronq --get-entry`, `cronq --set-entry <text>`, `cronq --clear-entry`.
 
 ---
 

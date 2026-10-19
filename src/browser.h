@@ -12,6 +12,7 @@ typedef void (*BrowserStateCallback)(bool is_loading, bool can_back, bool can_fo
 typedef void (*BrowserPopupCreatedCallback)(GtkWidget *popup_view, gpointer user_data);
 typedef void (*BrowserPopupClosedCallback)(GtkWidget *popup_view, gpointer user_data);
 typedef void (*BrowserDivertCallback)(const char *uri, gpointer user_data);
+typedef void (*BrowserClickCallback)(gpointer user_data);
 
 bool           browser_init(void);
 void           browser_cleanup(void);
@@ -58,9 +59,12 @@ void           browser_set_popup_callbacks(BrowserPopupCreatedCallback on_create
                                            BrowserPopupClosedCallback on_closed,
                                            gpointer user_data);
 void           browser_set_divert_callback(BrowserDivertCallback cb, gpointer user_data);
+void           browser_set_click_callback(BrowserClickCallback cb, gpointer user_data);
 
 /* Backward compatibility helpers */
 GtkWidget     *browser_get_widget(void);
 WebKitWebView *browser_get_view(void);
+
+void           browser_universal_reset(void);
 
 #endif /* BROWSER_H */

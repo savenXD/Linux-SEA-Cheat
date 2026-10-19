@@ -12,11 +12,11 @@ echo -e "${BLUE}  PHASE 5 ACCEPTANCE TESTS: CHATGPT CONTAINMENT, APPS & CLIPBOAR
 echo -e "${BLUE}========================================================================${NC}"
 
 # Clean existing instances
-killall -9 phoneoverlay xed 2>/dev/null || true
+killall -9 cronq xed 2>/dev/null || true
 sleep 0.5
 
 get_overlay_xid() {
-    python3 -c "import subprocess; out = subprocess.check_output(['xwininfo', '-root', '-tree']).decode(); [print(line.split()[0]) for line in out.splitlines() if 'PhoneOverlay' in line and ('360x640' in line or 'PhoneOverlay' in line)]" | head -n 1
+    python3 -c "import subprocess; out = subprocess.check_output(['xwininfo', '-root', '-tree']).decode(); [print(line.split()[0]) for line in out.splitlines() if 'Cronq' in line and ('360x640' in line or 'Cronq' in line)]" | head -n 1
 }
 
 get_clipboard_text() {
@@ -30,7 +30,7 @@ set_clipboard_text() {
 # -------------------------------------------------------------------------
 echo -e "\n${BLUE}--- T1: ChatGPT Containment & Window Geometry Lock ---${NC}"
 # -------------------------------------------------------------------------
-./bin/phoneoverlay --show > /tmp/p5_t1_overlay.log 2>&1 &
+./bin/cronq --show > /tmp/p5_t1_overlay.log 2>&1 &
 OVERLAY_PID=$!
 sleep 1.5
 
@@ -41,7 +41,7 @@ if [ -z "$OVERLAY_XID" ]; then
     exit 1
 fi
 
-./bin/phoneoverlay --app chatgpt
+./bin/cronq --app chatgpt
 sleep 2.5
 
 INFO=$(xwininfo -id "$OVERLAY_XID")
@@ -56,7 +56,7 @@ if [ "$WIDTH" != "360" ] || [ "$HEIGHT" != "640" ]; then
     exit 1
 fi
 
-WIN_COUNT=$(python3 -c "import subprocess; out = subprocess.check_output(['xwininfo', '-root', '-tree']).decode(); print(len([line for line in out.splitlines() if 'PhoneOverlay' in line and '360x640' in line]))")
+WIN_COUNT=$(python3 -c "import subprocess; out = subprocess.check_output(['xwininfo', '-root', '-tree']).decode(); print(len([line for line in out.splitlines() if 'Cronq' in line and '360x640' in line]))")
 echo "  Top-level overlay count in X11 tree: $WIN_COUNT"
 if [ "$WIN_COUNT" -ne 1 ]; then
     echo -e "${RED}T1 FAIL: Expected exactly 1 overlay window in tree, found $WIN_COUNT${NC}"
@@ -83,17 +83,17 @@ cat << 'HTMLEOF' > /tmp/p5_test_auto_popup.html
 </html>
 HTMLEOF
 
-HAS_MODAL_BEFORE=$(./bin/phoneoverlay --has-modal)
+HAS_MODAL_BEFORE=$(./bin/cronq --has-modal)
 if [ "$HAS_MODAL_BEFORE" != "FALSE" ]; then
     echo -e "${RED}T2 FAIL: Modal should be FALSE initially${NC}"
     kill -9 $OVERLAY_PID 2>/dev/null || true
     exit 1
 fi
 
-./bin/phoneoverlay --load file:///tmp/p5_test_auto_popup.html
+./bin/cronq --load file:///tmp/p5_test_auto_popup.html
 sleep 1.5
 
-HAS_MODAL_AFTER=$(./bin/phoneoverlay --has-modal)
+HAS_MODAL_AFTER=$(./bin/cronq --has-modal)
 echo "  Modal status after window.open: $HAS_MODAL_AFTER"
 if [ "$HAS_MODAL_AFTER" != "TRUE" ]; then
     echo -e "${RED}T2 FAIL: Internal modal should be active!${NC}"
@@ -101,7 +101,7 @@ if [ "$HAS_MODAL_AFTER" != "TRUE" ]; then
     exit 1
 fi
 
-WIN_COUNT_MODAL=$(python3 -c "import subprocess; out = subprocess.check_output(['xwininfo', '-root', '-tree']).decode(); print(len([line for line in out.splitlines() if 'PhoneOverlay' in line and '360x640' in line]))")
+WIN_COUNT_MODAL=$(python3 -c "import subprocess; out = subprocess.check_output(['xwininfo', '-root', '-tree']).decode(); print(len([line for line in out.splitlines() if 'Cronq' in line and '360x640' in line]))")
 if [ "$WIN_COUNT_MODAL" -ne 1 ]; then
     echo -e "${RED}T2 FAIL: window.open spawned an external X11 window (count=$WIN_COUNT_MODAL)${NC}"
     kill -9 $OVERLAY_PID 2>/dev/null || true
@@ -109,9 +109,9 @@ if [ "$WIN_COUNT_MODAL" -ne 1 ]; then
 fi
 
 # Close internal modal
-./bin/phoneoverlay --close-modal
+./bin/cronq --close-modal
 sleep 0.5
-HAS_MODAL_CLOSED=$(./bin/phoneoverlay --has-modal)
+HAS_MODAL_CLOSED=$(./bin/cronq --has-modal)
 if [ "$HAS_MODAL_CLOSED" != "FALSE" ]; then
     echo -e "${RED}T2 FAIL: Modal should be closed${NC}"
     kill -9 $OVERLAY_PID 2>/dev/null || true
@@ -122,9 +122,9 @@ echo -e "${GREEN}  [T2 PASS] Popups stay contained in internal modal layer; zero
 # -------------------------------------------------------------------------
 echo -e "\n${BLUE}--- T3: Two-App Home Screen & State Preservation ---${NC}"
 # -------------------------------------------------------------------------
-./bin/phoneoverlay --home
+./bin/cronq --home
 sleep 0.5
-STATUS_HOME=$(./bin/phoneoverlay --status)
+STATUS_HOME=$(./bin/cronq --status)
 echo "  Status at Home: $STATUS_HOME"
 if ! echo "$STATUS_HOME" | grep -q "APP=home"; then
     echo -e "${RED}T3 FAIL: Expected APP=home${NC}"
@@ -132,27 +132,27 @@ if ! echo "$STATUS_HOME" | grep -q "APP=home"; then
     exit 1
 fi
 
-./bin/phoneoverlay --app chatgpt
+./bin/cronq --app chatgpt
 sleep 0.5
-STATUS_CG=$(./bin/phoneoverlay --status)
+STATUS_CG=$(./bin/cronq --status)
 if ! echo "$STATUS_CG" | grep -q "APP=chatgpt"; then
     echo -e "${RED}T3 FAIL: Expected APP=chatgpt${NC}"
     kill -9 $OVERLAY_PID 2>/dev/null || true
     exit 1
 fi
 
-./bin/phoneoverlay --app browser
+./bin/cronq --app browser
 sleep 0.5
-STATUS_BR=$(./bin/phoneoverlay --status)
+STATUS_BR=$(./bin/cronq --status)
 if ! echo "$STATUS_BR" | grep -q "APP=browser"; then
     echo -e "${RED}T3 FAIL: Expected APP=browser${NC}"
     kill -9 $OVERLAY_PID 2>/dev/null || true
     exit 1
 fi
 
-./bin/phoneoverlay --app chatgpt
+./bin/cronq --app chatgpt
 sleep 0.5
-STATUS_CG2=$(./bin/phoneoverlay --status)
+STATUS_CG2=$(./bin/cronq --status)
 if ! echo "$STATUS_CG2" | grep -q "APP=chatgpt"; then
     echo -e "${RED}T3 FAIL: Expected APP=chatgpt on return${NC}"
     kill -9 $OVERLAY_PID 2>/dev/null || true
@@ -166,17 +166,17 @@ echo -e "\n${BLUE}--- T4: Bottom Navigation Bar (Back, Home, Reload, Snap) ---${
 echo "<html><body>Nav Page A</body></html>" > /tmp/p5_nav_a.html
 echo "<html><body>Nav Page B</body></html>" > /tmp/p5_nav_b.html
 
-./bin/phoneoverlay --app browser
+./bin/cronq --app browser
 sleep 0.5
-./bin/phoneoverlay --load file:///tmp/p5_nav_a.html
+./bin/cronq --load file:///tmp/p5_nav_a.html
 sleep 0.8
-./bin/phoneoverlay --load file:///tmp/p5_nav_b.html
+./bin/cronq --load file:///tmp/p5_nav_b.html
 sleep 0.8
 
 # Back to Page A
-./bin/phoneoverlay --back
+./bin/cronq --back
 sleep 0.5
-STATUS_BACK1=$(./bin/phoneoverlay --status)
+STATUS_BACK1=$(./bin/cronq --status)
 if ! echo "$STATUS_BACK1" | grep -q "APP=browser"; then
     echo -e "${RED}T4 FAIL: Expected still in APP=browser after first back${NC}"
     kill -9 $OVERLAY_PID 2>/dev/null || true
@@ -186,9 +186,9 @@ fi
 # Exhaust history to trigger fallback to home
 FALLBACK_OK=false
 for attempt in {1..6}; do
-    ./bin/phoneoverlay --back
+    ./bin/cronq --back
     sleep 0.5
-    STATUS_BACK_FALLBACK=$(./bin/phoneoverlay --status)
+    STATUS_BACK_FALLBACK=$(./bin/cronq --status)
     if echo "$STATUS_BACK_FALLBACK" | grep -q "APP=home"; then
         FALLBACK_OK=true
         break
@@ -202,11 +202,11 @@ if [ "$FALLBACK_OK" != "true" ]; then
 fi
 
 # Test Home button from chatgpt
-./bin/phoneoverlay --app chatgpt
+./bin/cronq --app chatgpt
 sleep 0.5
-./bin/phoneoverlay --home
+./bin/cronq --home
 sleep 0.5
-STATUS_HOME_BTN=$(./bin/phoneoverlay --status)
+STATUS_HOME_BTN=$(./bin/cronq --status)
 if ! echo "$STATUS_HOME_BTN" | grep -q "APP=home"; then
     echo -e "${RED}T4 FAIL: Expected APP=home after --home${NC}"
     kill -9 $OVERLAY_PID 2>/dev/null || true
@@ -214,9 +214,9 @@ if ! echo "$STATUS_HOME_BTN" | grep -q "APP=home"; then
 fi
 
 # Test Reload
-./bin/phoneoverlay --app browser
+./bin/cronq --app browser
 sleep 0.5
-./bin/phoneoverlay --reload
+./bin/cronq --reload
 sleep 0.5
 echo -e "${GREEN}  [T4 PASS] Navigation bar (Back with fallback, Home, Reload) verified.${NC}"
 
@@ -237,7 +237,7 @@ echo "  Desktop app (xed) active window XID: $XED_XID"
 xdotool mousemove 100 1010 click 1
 sleep 0.5
 
-STATUS_OVERLAY_CLICK=$(./bin/phoneoverlay --status)
+STATUS_OVERLAY_CLICK=$(./bin/cronq --status)
 echo "  Overlay status after click: $STATUS_OVERLAY_CLICK"
 if ! echo "$STATUS_OVERLAY_CLICK" | grep -q "TARGET=OVERLAY"; then
     echo -e "${RED}T5 FAIL: Expected TARGET=OVERLAY${NC}"
@@ -271,7 +271,7 @@ xdotool key ctrl+v
 sleep 0.5
 
 CLIP_OUT=$(get_clipboard_text)
-ENTRY_OUT=$(./bin/phoneoverlay --get-entry)
+ENTRY_OUT=$(./bin/cronq --get-entry)
 echo "  X11 Clipboard Text: '$CLIP_OUT'"
 echo "  Overlay Entry Text: '$ENTRY_OUT'"
 
@@ -310,7 +310,7 @@ echo -e "\n${BLUE}--- T6: Outside Click Releases Shield & Restores GSettings ---
 xdotool mousemove 800 500 click 1
 sleep 0.5
 
-STATUS_AFTER_OUTSIDE=$(./bin/phoneoverlay --status)
+STATUS_AFTER_OUTSIDE=$(./bin/cronq --status)
 echo "  Status after outside click: $STATUS_AFTER_OUTSIDE"
 if ! echo "$STATUS_AFTER_OUTSIDE" | grep -q "TARGET=NONE"; then
     echo -e "${RED}T6 FAIL: Expected TARGET=NONE after outside click${NC}"
@@ -334,9 +334,9 @@ cat << 'HTMLEOF' > /tmp/p5_web_input_test.html
 </html>
 HTMLEOF
 
-./bin/phoneoverlay --app browser
+./bin/cronq --app browser
 sleep 0.5
-./bin/phoneoverlay --load file:///tmp/p5_web_input_test.html
+./bin/cronq --load file:///tmp/p5_web_input_test.html
 sleep 1.5
 
 # Click into web input field at (100, 520)
@@ -358,7 +358,7 @@ fi
 echo -e "${GREEN}  [T7 PASS] WebKit text editing and clipboard operations verified.${NC}"
 
 # Clean up all processes before running regression suites
-killall -9 phoneoverlay xed adv1_ewmh adv2_override adv3_focuslock stackcheck 2>/dev/null || true
+killall -9 cronq xed adv1_ewmh adv2_override adv3_focuslock stackcheck 2>/dev/null || true
 sleep 1
 
 # -------------------------------------------------------------------------
@@ -366,22 +366,22 @@ echo -e "\n${BLUE}--- T8: Full Regression Suite (Phases 1-4) ---${NC}"
 # -------------------------------------------------------------------------
 echo "  Running Phase 1 suite..."
 bash tests/acceptance_phase1.sh > /dev/null 2>&1
-killall -9 phoneoverlay xed adv1_ewmh adv2_override adv3_focuslock stackcheck 2>/dev/null || true
+killall -9 cronq xed adv1_ewmh adv2_override adv3_focuslock stackcheck 2>/dev/null || true
 sleep 1
 
 echo "  Running Phase 2 adversary stacking suite..."
 bash tests/run_adversaries.sh > /dev/null 2>&1
-killall -9 phoneoverlay xed adv1_ewmh adv2_override adv3_focuslock stackcheck 2>/dev/null || true
+killall -9 cronq xed adv1_ewmh adv2_override adv3_focuslock stackcheck 2>/dev/null || true
 sleep 1
 
 echo "  Running Phase 3 input model suite..."
 bash tests/run_phase3_tests.sh > /dev/null 2>&1
-killall -9 phoneoverlay xed adv1_ewmh adv2_override adv3_focuslock stackcheck 2>/dev/null || true
+killall -9 cronq xed adv1_ewmh adv2_override adv3_focuslock stackcheck 2>/dev/null || true
 sleep 1
 
 echo "  Running Phase 4 browser & supervisor suite..."
 bash tests/test_phase4_browser.sh > /dev/null 2>&1
-killall -9 phoneoverlay xed adv1_ewmh adv2_override adv3_focuslock stackcheck 2>/dev/null || true
+killall -9 cronq xed adv1_ewmh adv2_override adv3_focuslock stackcheck 2>/dev/null || true
 sleep 1
 echo -e "${GREEN}  [T8 PASS] Zero regressions across all Phase 1-4 test suites.${NC}"
 

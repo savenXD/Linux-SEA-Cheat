@@ -12,7 +12,7 @@ echo -e "${BLUE}    RUNNING COMPLETE CONSOLIDATED ACCEPTANCE TEST SUITE (PHASES 
 echo -e "${BLUE}========================================================================${NC}"
 
 # Kill any stray processes
-killall -9 phoneoverlay colorwin adv1_ewmh adv2_override adv3_focuslock stackcheck 2>/dev/null || true
+killall -9 cronq colorwin adv1_ewmh adv2_override adv3_focuslock stackcheck 2>/dev/null || true
 sleep 0.5
 
 echo -e "\n${BLUE}>>> [SUITE 1/6] Running Phase 1 Acceptance Tests...${NC}"

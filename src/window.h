@@ -5,12 +5,14 @@
 #include <X11/Xlib.h>
 #include <stdbool.h>
 
-#define OVERLAY_WIDTH        360
-#define OVERLAY_HEIGHT       640
-#define OVERLAY_MIN_WIDTH    280
-#define OVERLAY_MIN_HEIGHT   450
-#define OVERLAY_MARGIN       12
-#define PHONE_CORNER_RADIUS  28.0
+#define OVERLAY_WIDTH            360
+#define OVERLAY_HEIGHT           640
+#define OVERLAY_MIN_WIDTH        260
+#define OVERLAY_MIN_HEIGHT       180
+#define OVERLAY_COMPACT_HEIGHT   280
+#define OVERLAY_EXPANDED_HEIGHT  640
+#define OVERLAY_MARGIN           12
+#define PHONE_CORNER_RADIUS      24.0
 
 typedef enum {
     CLIPBOARD_ACTION_SELECT_ALL,
@@ -32,10 +34,13 @@ gboolean    overlay_is_visible(void);
 void        overlay_get_geometry(int *x, int *y, int *w, int *h);
 void        overlay_queue_draw(void);
 void        overlay_set_ghost(gboolean ghost);
+void        overlay_set_active_focus(gboolean active);
 void        overlay_apply_config(void);
 void        overlay_set_opacity(double opacity);
 double      overlay_get_opacity(void);
 void        overlay_set_size(int width, int height);
+void        overlay_set_compact_mode(gboolean compact);
+void        overlay_toggle_ghost_input(void);
 void        overlay_set_fullscreen(void);
 void        overlay_set_default_size(void);
 
@@ -46,6 +51,7 @@ const char *overlay_get_current_app(void);
 void        overlay_go_home(void);
 void        overlay_back(void);
 void        overlay_reload(void);
+void        overlay_universal_reset(void);
 void        overlay_snap(void);
 void        overlay_capture_begin(void);
 void        overlay_capture_end(void);

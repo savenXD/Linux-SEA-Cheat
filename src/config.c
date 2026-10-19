@@ -50,7 +50,7 @@ static void set_defaults(AppConfig *cfg) {
 
 static void create_default_config_file(const char *path) {
     const char *default_ini =
-        "# PhoneOverlay Configuration\n"
+        "# Cronq Configuration\n"
         "\n"
         "[General]\n"
         "width = 360\n"
@@ -292,7 +292,7 @@ bool config_init(void) {
     set_defaults(&s_config);
 
     const char *config_dir = g_get_user_config_dir();
-    snprintf(s_config_path, sizeof(s_config_path), "%s/phoneoverlay/config.ini", config_dir);
+    snprintf(s_config_path, sizeof(s_config_path), "%s/cronq/config.ini", config_dir);
 
     if (!g_file_test(s_config_path, G_FILE_TEST_EXISTS)) {
         create_default_config_file(s_config_path);

@@ -40,10 +40,25 @@ static gpointer                    s_popup_ud = NULL;
 static BrowserDivertCallback     s_divert_cb = NULL;
 static gpointer                  s_divert_ud = NULL;
 
+static BrowserClickCallback      s_click_cb = NULL;
+static gpointer                  s_click_ud = NULL;
+
 static const char *s_chatgpt_enter_script =
     "(function() {\n"
-    "  if (window.__phoneoverlay_chatgpt_enter_installed) return;\n"
-    "  window.__phoneoverlay_chatgpt_enter_installed = true;\n"
+    "  function injectCaretStyle() {\n"
+    "    if (document.getElementById('__cronq_caret_style')) return;\n"
+    "    var style = document.createElement('style');\n"
+    "    style.id = '__cronq_caret_style';\n"
+    "    style.textContent = 'input, textarea, [contenteditable], #prompt-textarea, .ProseMirror { caret-color: #ffffff !important; }';\n"
+    "    (document.head || document.documentElement).appendChild(style);\n"
+    "  }\n"
+    "  injectCaretStyle();\n"
+    "  if (document.readyState === 'loading') {\n"
+    "    document.addEventListener('DOMContentLoaded', injectCaretStyle);\n"
+    "  }\n"
+    "\n"
+    "  if (window.__cronq_chatgpt_enter_installed) return;\n"
+    "  window.__cronq_chatgpt_enter_installed = true;\n"
     "\n"
     "  function findSendButton() {\n"
     "    var btn = document.querySelector('button[data-testid=\"send-button\"]') ||\n"
@@ -349,6 +364,16 @@ static gboolean on_decide_policy(WebKitWebView *web_view, WebKitPolicyDecision *
     return FALSE; /* Proceed with default policy */
 }
 
+static gboolean on_webview_button_press(GtkWidget *widget, GdkEventButton *event, gpointer user_data) {
+    (void)widget;
+    (void)event;
+    (void)user_data;
+    if (s_click_cb) {
+        s_click_cb(s_click_ud);
+    }
+    return FALSE; /* allow WebKit to process click */
+}
+
 static void configure_webview(WebKitWebView *view, const AppConfig *cfg) {
     WebKitSettings *settings = webkit_web_view_get_settings(view);
     webkit_settings_set_user_agent(settings, cfg->user_agent);
@@ -360,6 +385,9 @@ static void configure_webview(WebKitWebView *view, const AppConfig *cfg) {
 
     GdkRGBA bg = {0.0, 0.0, 0.0, 1.0};
     webkit_web_view_set_background_color(view, &bg);
+
+    gtk_widget_add_events(GTK_WIDGET(view), GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK);
+    g_signal_connect(view, "button-press-event", G_CALLBACK(on_webview_button_press), NULL);
 
     g_signal_connect(view, "load-changed", G_CALLBACK(on_load_changed), NULL);
     g_signal_connect(view, "notify::estimated-load-progress", G_CALLBACK(on_notify_progress), NULL);
@@ -387,9 +415,9 @@ static GtkWidget *create_scrolled_container(WebKitWebView *view, int width) {
 bool browser_init(void) {
     const AppConfig *cfg = config_get();
 
-    /* 1. Setup persistent storage paths in ~/.local/share/phoneoverlay */
+    /* 1. Setup persistent storage paths in ~/.local/share/cronq */
     const char *data_home = g_get_user_data_dir();
-    char *base_dir = g_build_filename(data_home, "phoneoverlay", NULL);
+    char *base_dir = g_build_filename(data_home, "cronq", NULL);
     char *data_dir = g_build_filename(base_dir, "data", NULL);
     char *cache_dir = g_build_filename(base_dir, "cache", NULL);
     char *cookie_file = g_build_filename(base_dir, "cookies.sqlite", NULL);
@@ -579,6 +607,42 @@ void browser_go_home(void) {
     }
 }
 
+void browser_universal_reset(void) {
+    const AppConfig *cfg = config_get();
+
+    /* 1. Clear any active popup */
+    if (s_active_popup) {
+        if (WEBKIT_IS_WEB_VIEW(s_active_popup) && !gtk_widget_in_destruction(GTK_WIDGET(s_active_popup))) {
+            gtk_widget_destroy(GTK_WIDGET(s_active_popup));
+        }
+        s_active_popup = NULL;
+    }
+
+    /* 2. Reset Browser App WebView (recreating child resets history cleanly) */
+    if (s_scroll_browser) {
+        GtkWidget *old_br = gtk_bin_get_child(GTK_BIN(s_scroll_browser));
+        if (old_br) {
+            gtk_container_remove(GTK_CONTAINER(s_scroll_browser), old_br);
+        }
+        s_view_browser = WEBKIT_WEB_VIEW(webkit_web_view_new_with_context(s_context));
+        configure_webview(s_view_browser, cfg);
+        gtk_container_add(GTK_CONTAINER(s_scroll_browser), GTK_WIDGET(s_view_browser));
+        gtk_widget_show_all(s_scroll_browser);
+        if (cfg->home_url[0] != '\0') {
+            browser_load_in_browser(cfg->home_url);
+        }
+    }
+
+    /* 3. Reset ChatGPT App WebView: Preserve login session, navigate back to clean home prompt */
+    if (s_view_chatgpt) {
+        webkit_web_view_load_uri(s_view_chatgpt, "https://chatgpt.com");
+    }
+
+    g_strlcpy(s_active_app, "browser", sizeof(s_active_app));
+    notify_state_changed();
+    xutil_log("BROWSER", "Universal reset executed: web views re-created, history cleared.");
+}
+
 bool browser_can_go_back(void) {
     WebKitWebView *active = browser_get_active_view();
     return (active && WEBKIT_IS_WEB_VIEW(active) && webkit_web_view_can_go_back(active));
@@ -683,10 +747,10 @@ void browser_paste(void) {
         }
 
         /* Fallback: If pixbuf extraction failed, try latest snap file */
-        if (!b64 && g_file_test("/tmp/phoneoverlay_latest_snap.png", G_FILE_TEST_EXISTS)) {
+        if (!b64 && g_file_test("/tmp/cronq_latest_snap.png", G_FILE_TEST_EXISTS)) {
             gchar *contents = NULL;
             gsize length = 0;
-            if (g_file_get_contents("/tmp/phoneoverlay_latest_snap.png", &contents, &length, NULL)) {
+            if (g_file_get_contents("/tmp/cronq_latest_snap.png", &contents, &length, NULL)) {
                 b64 = g_base64_encode((const guchar *)contents, length);
                 g_free(contents);
             }
@@ -716,7 +780,7 @@ void browser_paste(void) {
                 "    });\n"
                 "    target.dispatchEvent(pasteEvent);\n"
                 "  } catch(e) {\n"
-                "    console.error('phoneoverlay image paste error:', e);\n"
+                "    console.error('cronq image paste error:', e);\n"
                 "  }\n"
                 "})();",
                 b64
@@ -768,6 +832,11 @@ void browser_set_popup_callbacks(BrowserPopupCreatedCallback on_created,
 void browser_set_divert_callback(BrowserDivertCallback cb, gpointer user_data) {
     s_divert_cb = cb;
     s_divert_ud = user_data;
+}
+
+void browser_set_click_callback(BrowserClickCallback cb, gpointer user_data) {
+    s_click_cb = cb;
+    s_click_ud = user_data;
 }
 
 void browser_cleanup(void) {

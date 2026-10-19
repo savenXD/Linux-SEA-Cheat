@@ -19,7 +19,7 @@ fi
 echo "T1 PASS: Build completed with zero warnings."
 
 echo "--- T2, T5: Window Geometry & Override-Redirect State ---"
-bin/phoneoverlay --show > /tmp/overlay_t2.log 2>&1 &
+bin/cronq --show > /tmp/overlay_t2.log 2>&1 &
 OVERLAY_PID=$!
 sleep 1
 
@@ -49,8 +49,8 @@ kill -TERM "$OVERLAY_PID"
 wait "$OVERLAY_PID" 2>/dev/null || true
 rm -f /tmp/overlay_t2.log
 
-echo "--- T3: 10x Hotkey Toggle via xdotool key ctrl+shift+alt+x ---"
-bin/phoneoverlay > /tmp/overlay_t3.log 2>&1 &
+echo "--- T3: 10x Hotkey Toggle via xdotool key alt+x ---"
+bin/cronq > /tmp/overlay_t3.log 2>&1 &
 OVERLAY_PID=$!
 sleep 1
 
@@ -63,7 +63,7 @@ for i in {1..10}; do
         EXPECTED="IsViewable"
     fi
 
-    xdotool key ctrl+shift+alt+x
+    xdotool key alt+x
     sleep 0.3
     STATE=$(xwininfo -id "$XID" | grep "Map State:" | awk '{print $NF}')
     echo "  Toggle #$i: State is $STATE (Expected $EXPECTED)"
@@ -100,7 +100,7 @@ sleep 0.3
 FOCUS_BEFORE=$(xdotool getwindowfocus)
 ACTIVE_BEFORE=$(xprop -root _NET_ACTIVE_WINDOW | awk '{print $NF}')
 
-bin/phoneoverlay --show > /tmp/overlay_t4.log 2>&1 &
+bin/cronq --show > /tmp/overlay_t4.log 2>&1 &
 OVERLAY_PID=$!
 sleep 1
 
@@ -139,7 +139,7 @@ else
 fi
 
 echo "--- T6: Clean Exit & Ungrab Verification ---"
-bin/phoneoverlay > /tmp/overlay_t6.log 2>&1 &
+bin/cronq > /tmp/overlay_t6.log 2>&1 &
 OVERLAY_PID=$!
 sleep 1
 
@@ -156,7 +156,7 @@ fi
 rm -f /tmp/overlay_t6.log
 
 echo "--- T7: Idle CPU Consumption Check While Hidden (5s) ---"
-bin/phoneoverlay > /tmp/overlay_t7.log 2>&1 &
+bin/cronq > /tmp/overlay_t7.log 2>&1 &
 OVERLAY_PID=$!
 sleep 1
 

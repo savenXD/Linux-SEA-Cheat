@@ -9,21 +9,21 @@ NC='\033[0m'
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
-BIN="${ROOT_DIR}/bin/phoneoverlay"
+BIN="${ROOT_DIR}/bin/cronq"
 COLORWIN="${ROOT_DIR}/tests/colorwin"
 ADV2="${ROOT_DIR}/tests/adversary/adv2_override"
 XCLIP="${ROOT_DIR}/tests/xclip"
 HTML_PAGE="${ROOT_DIR}/tests/test_paste_page.html"
 
-LOG_FILE="/tmp/phoneoverlay_test6.log"
-rm -f "$LOG_FILE" /tmp/phoneoverlay_latest_snap.png
+LOG_FILE="/tmp/cronq_test6.log"
+rm -f "$LOG_FILE" /tmp/cronq_latest_snap.png
 
 echo -e "${BLUE}========================================================================${NC}"
 echo -e "${BLUE}    RUNNING PHASE 6 SCREEN CAPTURE (SNAP) ACCEPTANCE TEST SUITE        ${NC}"
 echo -e "${BLUE}========================================================================${NC}"
 
 # Cleanup any stray instances
-killall -9 phoneoverlay colorwin adv1_ewmh adv2_override adv3_focuslock stackcheck 2>/dev/null || true
+killall -9 cronq colorwin adv1_ewmh adv2_override adv3_focuslock stackcheck 2>/dev/null || true
 sleep 0.5
 
 # Ensure binaries are built
@@ -40,8 +40,8 @@ if [ ! -f "$ADV2" ]; then
     gcc -std=gnu11 -Wall -O2 tests/adversary/adv2_override.c -lX11 -o tests/adversary/adv2_override
 fi
 
-# Launch phoneoverlay daemon
-echo -e "${BLUE}[TEST SETUP] Launching phoneoverlay daemon...${NC}"
+# Launch cronq daemon
+echo -e "${BLUE}[TEST SETUP] Launching cronq daemon...${NC}"
 "$BIN" --show > "$LOG_FILE" 2>&1 &
 OVERLAY_PID=$!
 sleep 1.5
@@ -74,12 +74,12 @@ sleep 0.8
 sleep 0.3
 
 # Trigger screen snap
-rm -f /tmp/phoneoverlay_latest_snap.png
+rm -f /tmp/cronq_latest_snap.png
 "$BIN" --snap
 sleep 1.0
 
-if [ ! -f "/tmp/phoneoverlay_latest_snap.png" ]; then
-    echo -e "${RED}FAILURE: /tmp/phoneoverlay_latest_snap.png was not generated!${NC}"
+if [ ! -f "/tmp/cronq_latest_snap.png" ]; then
+    echo -e "${RED}FAILURE: /tmp/cronq_latest_snap.png was not generated!${NC}"
     exit 1
 fi
 
@@ -89,7 +89,7 @@ import sys
 from PIL import Image
 
 try:
-    img = Image.open('/tmp/phoneoverlay_latest_snap.png').convert('RGB')
+    img = Image.open('/tmp/cronq_latest_snap.png').convert('RGB')
     w, h = img.size
     # Overlay region: x=12, y=428, width=360, height=640
     crop_x, crop_y, crop_w, crop_h = 12, 428, 360, 640
@@ -222,7 +222,7 @@ sleep 0.8
 # Verify browser page received the image
 PASTE_STATUS=$(python3 - << 'EOF'
 import sys, re
-with open('/tmp/phoneoverlay_test6.log', 'r') as f:
+with open('/tmp/cronq_test6.log', 'r') as f:
     content = f.read()
 if "Injecting synthetic image paste event" in content or "Executing native paste editing command" in content:
     print("PASTE_DISPATCH_CONFIRMED")
@@ -251,7 +251,7 @@ done
 # Check log for actual unmap to remap intervals
 python3 - << 'EOF'
 import sys, re
-with open('/tmp/phoneoverlay_test6.log', 'r') as f:
+with open('/tmp/cronq_test6.log', 'r') as f:
     lines = f.readlines()
 
 unmap_times = []
@@ -284,7 +284,7 @@ echo -e "${GREEN}PASS: T6 Snap Duration & Stress Test (overlay stays responsive 
 # TEST T7: Archival & Pruning Test
 # -----------------------------------------------------------------------------
 echo -e "\n${BLUE}>>> [TEST T7] Archival & Pruning Test...${NC}"
-SNAP_DIR="$HOME/Pictures/phoneoverlay"
+SNAP_DIR="$HOME/Pictures/cronq"
 if [ ! -d "$SNAP_DIR" ]; then
     echo -e "${RED}FAILURE: Directory $SNAP_DIR does not exist!${NC}"
     exit 1
@@ -311,7 +311,7 @@ sleep 0.8
 sleep 0.8
 
 # Verify overlay is on top after capture
-OVERLAY_XID=$(printf "0x%x" $(xdotool search --name "PhoneOverlay" | head -n 1 2>/dev/null || echo 0))
+OVERLAY_XID=$(printf "0x%x" $(xdotool search --name "Cronq" | head -n 1 2>/dev/null || echo 0))
 echo "Overlay XID: $OVERLAY_XID"
 
 kill -9 $ADV2_PID 2>/dev/null || true

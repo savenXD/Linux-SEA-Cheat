@@ -15,9 +15,9 @@ make clean
 make -j4
 make adversaries
 
-OVERLAY_BIN="$ROOT_DIR/bin/phoneoverlay"
+OVERLAY_BIN="$ROOT_DIR/bin/cronq"
 STACKCHECK_BIN="$ROOT_DIR/tests/stackcheck"
-LOG_DIR="/tmp/phoneoverlay_p2_logs"
+LOG_DIR="/tmp/cronq_p2_logs"
 mkdir -p "$LOG_DIR"
 rm -f "$LOG_DIR"/*
 

@@ -8,34 +8,34 @@ YELLOW='\033[1;33m'
 NC='\033[0m'
 
 echo -e "${BLUE}========================================================${NC}"
-echo -e "${BLUE} RUNNING PHASE 4 ACCEPTANCE TESTS (BROWSER & PHONE UI)  ${NC}"
+echo -e "${BLUE} RUNNING PHASE 4 ACCEPTANCE TESTS (BROWSER & CRONQ UI)  ${NC}"
 echo -e "${BLUE}========================================================${NC}"
 
 # Clean existing instances
-killall -9 phoneoverlay 2>/dev/null || true
+killall -9 cronq 2>/dev/null || true
 sleep 0.5
 
 get_overlay_xid() {
-    python3 -c "import subprocess; out = subprocess.check_output(['xwininfo', '-root', '-tree']).decode(); [print(line.split()[0]) for line in out.splitlines() if 'PhoneOverlay' in line and ('360x640' in line or 'PhoneOverlay' in line)]" | head -n 1
+    python3 -c "import subprocess; out = subprocess.check_output(['xwininfo', '-root', '-tree']).decode(); [print(line.split()[0]) for line in out.splitlines() if 'Cronq' in line and ('360x640' in line or 'Cronq' in line)]" | head -n 1
 }
 
 # -------------------------------------------------------------------------
 echo -e "\n${BLUE}--- T1: Single-Instance IPC CLI Control Matrix ---${NC}"
 # -------------------------------------------------------------------------
-./bin/phoneoverlay --show > /tmp/p4_t1_overlay.log 2>&1 &
+./bin/cronq --show > /tmp/p4_t1_overlay.log 2>&1 &
 OVERLAY_PID=$!
 sleep 1.5
 
 OVERLAY_XID=$(get_overlay_xid)
 if [ -z "$OVERLAY_XID" ]; then
-    echo -e "${RED}Failed to find PhoneOverlay XID!${NC}"
+    echo -e "${RED}Failed to find Cronq XID!${NC}"
     kill -9 $OVERLAY_PID 2>/dev/null || true
     exit 1
 fi
 echo "Overlay XID: $OVERLAY_XID"
 
 # 1. Query status
-STATUS_OUT=$(./bin/phoneoverlay --status)
+STATUS_OUT=$(./bin/cronq --status)
 echo "  Initial Status: $STATUS_OUT"
 if ! echo "$STATUS_OUT" | grep -q "VISIBLE=TRUE"; then
     echo -e "${RED}T1.1 FAIL: Expected VISIBLE=TRUE in status${NC}"
@@ -45,9 +45,9 @@ fi
 echo -e "${GREEN}  [T1.1 PASS] Status query verified.${NC}"
 
 # 2. Hide via IPC
-./bin/phoneoverlay --hide
+./bin/cronq --hide
 sleep 0.5
-STATUS_HIDE=$(./bin/phoneoverlay --status)
+STATUS_HIDE=$(./bin/cronq --status)
 if ! echo "$STATUS_HIDE" | grep -q "VISIBLE=FALSE"; then
     echo -e "${RED}T1.2 FAIL: Expected VISIBLE=FALSE after --hide${NC}"
     kill -9 $OVERLAY_PID
@@ -56,9 +56,9 @@ fi
 echo -e "${GREEN}  [T1.2 PASS] CLI --hide verified.${NC}"
 
 # 3. Toggle via IPC
-./bin/phoneoverlay --toggle
+./bin/cronq --toggle
 sleep 0.5
-STATUS_TOGGLE=$(./bin/phoneoverlay --status)
+STATUS_TOGGLE=$(./bin/cronq --status)
 if ! echo "$STATUS_TOGGLE" | grep -q "VISIBLE=TRUE"; then
     echo -e "${RED}T1.3 FAIL: Expected VISIBLE=TRUE after --toggle${NC}"
     kill -9 $OVERLAY_PID
@@ -67,17 +67,17 @@ fi
 echo -e "${GREEN}  [T1.3 PASS] CLI --toggle verified.${NC}"
 
 # 4. Mode switch via IPC
-./bin/phoneoverlay --mode exclusive
+./bin/cronq --mode exclusive
 sleep 0.5
-STATUS_MODE=$(./bin/phoneoverlay --status)
+STATUS_MODE=$(./bin/cronq --status)
 if ! echo "$STATUS_MODE" | grep -q "MODE=EXCLUSIVE"; then
     echo -e "${RED}T1.4 FAIL: Expected MODE=EXCLUSIVE${NC}"
     kill -9 $OVERLAY_PID
     exit 1
 fi
-./bin/phoneoverlay --mode mirror
+./bin/cronq --mode mirror
 sleep 0.5
-STATUS_MODE2=$(./bin/phoneoverlay --status)
+STATUS_MODE2=$(./bin/cronq --status)
 if ! echo "$STATUS_MODE2" | grep -q "MODE=MIRROR"; then
     echo -e "${RED}T1.4 FAIL: Expected MODE=MIRROR${NC}"
     kill -9 $OVERLAY_PID
@@ -86,17 +86,17 @@ fi
 echo -e "${GREEN}  [T1.4 PASS] CLI --mode verified.${NC}"
 
 # 5. Ghost switch via IPC
-./bin/phoneoverlay --ghost on
+./bin/cronq --ghost on
 sleep 0.5
-STATUS_GHOST=$(./bin/phoneoverlay --status)
+STATUS_GHOST=$(./bin/cronq --status)
 if ! echo "$STATUS_GHOST" | grep -q "GHOST=GHOST"; then
     echo -e "${RED}T1.5 FAIL: Expected GHOST=GHOST${NC}"
     kill -9 $OVERLAY_PID
     exit 1
 fi
-./bin/phoneoverlay --ghost off
+./bin/cronq --ghost off
 sleep 0.5
-STATUS_GHOST2=$(./bin/phoneoverlay --status)
+STATUS_GHOST2=$(./bin/cronq --status)
 if ! echo "$STATUS_GHOST2" | grep -q "GHOST=SOLID"; then
     echo -e "${RED}T1.5 FAIL: Expected GHOST=SOLID${NC}"
     kill -9 $OVERLAY_PID
@@ -112,14 +112,14 @@ echo -e "${GREEN}T1 PASS: Single-instance IPC control matrix verified!${NC}"
 echo -e "\n${BLUE}--- T2: WebKit Page Loading & Navigation Actions ---${NC}"
 # -------------------------------------------------------------------------
 # Create temporary HTML test page
-TEST_HTML_DIR="/tmp/phoneoverlay_test_www"
+TEST_HTML_DIR="/tmp/cronq_test_www"
 mkdir -p "$TEST_HTML_DIR"
 cat << 'HTML_EOF' > "$TEST_HTML_DIR/index.html"
 <!DOCTYPE html>
 <html>
-<head><title>PhoneOverlay Local Test Page</title></head>
+<head><title>Cronq Local Test Page</title></head>
 <body style="background:#1a1d2e; color:#fff; font-family:sans-serif; padding:20px;">
-  <h2>PhoneOverlay Mobile Web</h2>
+  <h2>Cronq Mobile Web</h2>
   <p id="msg">Initial Load</p>
   <input id="test_input" type="text" value="" placeholder="Type here..." style="font-size:18px; padding:8px;" autofocus>
   <a id="test_link" href="page2.html" style="color:#38bdf8;">Go to Page 2</a>
@@ -138,15 +138,15 @@ cat << 'HTML_EOF' > "$TEST_HTML_DIR/page2.html"
 </html>
 HTML_EOF
 
-./bin/phoneoverlay --show > /tmp/p4_t2_overlay.log 2>&1 &
+./bin/cronq --show > /tmp/p4_t2_overlay.log 2>&1 &
 OVERLAY_PID=$!
 sleep 1.5
 
-./bin/phoneoverlay --load "file://$TEST_HTML_DIR/index.html"
+./bin/cronq --load "file://$TEST_HTML_DIR/index.html"
 sleep 1.0
 
 # Verify URL property on window
-CURRENT_URL=$(./bin/phoneoverlay --status)
+CURRENT_URL=$(./bin/cronq --status)
 echo "  Status after load: $CURRENT_URL"
 
 # Test URL bar entry
@@ -159,7 +159,7 @@ sleep 0.2
 xdotool key Return
 sleep 1.0
 
-CURRENT_ENTRY=$(xprop -id "$(get_overlay_xid)" _PHONEOVERLAY_ENTRY_TEXT | awk -F'"' '{print $2}')
+CURRENT_ENTRY=$(xprop -id "$(get_overlay_xid)" _CRONQ_ENTRY_TEXT | awk -F'"' '{print $2}')
 echo "  Entry text after navigating to page 2: $CURRENT_ENTRY"
 
 if echo "$CURRENT_ENTRY" | grep -q "page2.html"; then
@@ -175,7 +175,7 @@ fi
 # Overlay is at (12, 428), so screen x = 12 + 45 = 57, screen y = 428 + 605 = 1033
 xdotool mousemove 57 1033 click 1
 sleep 1.0
-CURRENT_ENTRY_BACK=$(xprop -id "$(get_overlay_xid)" _PHONEOVERLAY_ENTRY_TEXT | awk -F'"' '{print $2}')
+CURRENT_ENTRY_BACK=$(xprop -id "$(get_overlay_xid)" _CRONQ_ENTRY_TEXT | awk -F'"' '{print $2}')
 echo "  Entry text after clicking Back: $CURRENT_ENTRY_BACK"
 
 if echo "$CURRENT_ENTRY_BACK" | grep -q "index.html"; then
@@ -200,7 +200,7 @@ cat << 'HTML_EOF' > "$TEST_HTML_DIR/cookie_test.html"
 <body>
   <h1>Setting Cookie...</h1>
   <script>
-    document.cookie = "phoneoverlay_session=token_abc_xyz_777; path=/; max-age=86400";
+    document.cookie = "cronq_session=token_abc_xyz_777; path=/; max-age=86400";
   </script>
 </body>
 </html>
@@ -210,15 +210,15 @@ python3 -m http.server $HTTP_PORT --directory "$TEST_HTML_DIR" > /dev/null 2>&1 
 SERVER_PID=$!
 sleep 0.5
 
-COOKIE_FILE="$HOME/.local/share/phoneoverlay/cookies.txt"
+COOKIE_FILE="$HOME/.local/share/cronq/cookies.txt"
 rm -f "$COOKIE_FILE"
 
 # Launch overlay, load cookie page
-./bin/phoneoverlay --show > /tmp/p4_t3_overlay1.log 2>&1 &
+./bin/cronq --show > /tmp/p4_t3_overlay1.log 2>&1 &
 OVERLAY_PID=$!
 sleep 1.5
 
-./bin/phoneoverlay --load "http://localhost:$HTTP_PORT/cookie_test.html"
+./bin/cronq --load "http://localhost:$HTTP_PORT/cookie_test.html"
 sleep 1.5
 
 # Gracefully terminate overlay so WebKitCookieManager flushes persistent storage
@@ -227,14 +227,14 @@ wait $OVERLAY_PID 2>/dev/null || true
 
 kill -TERM $SERVER_PID 2>/dev/null || true
 
-if [ -f "$COOKIE_FILE" ] && grep -q "phoneoverlay_session" "$COOKIE_FILE"; then
-    echo -e "${GREEN}  [T3.1 PASS] Cookie flushed to disk: $(grep phoneoverlay_session "$COOKIE_FILE")${NC}"
+if [ -f "$COOKIE_FILE" ] && grep -q "cronq_session" "$COOKIE_FILE"; then
+    echo -e "${GREEN}  [T3.1 PASS] Cookie flushed to disk: $(grep cronq_session "$COOKIE_FILE")${NC}"
 else
     echo -e "${YELLOW}  [T3.1 NOTE] Cookie file check: exists=$([ -f "$COOKIE_FILE" ] && echo true || echo false)${NC}"
 fi
 
 # Restart overlay and verify persistent context starts without error
-./bin/phoneoverlay --show > /tmp/p4_t3_overlay2.log 2>&1 &
+./bin/cronq --show > /tmp/p4_t3_overlay2.log 2>&1 &
 OVERLAY_PID=$!
 sleep 1.5
 
@@ -251,11 +251,11 @@ echo -e "${GREEN}T3 PASS: Persistent cookie storage across restarts verified!${N
 # -------------------------------------------------------------------------
 echo -e "\n${BLUE}--- T4: SIGHUP Dynamic Configuration Reload ---${NC}"
 # -------------------------------------------------------------------------
-CONFIG_FILE="$HOME/.config/phoneoverlay/config.ini"
+CONFIG_FILE="$HOME/.config/cronq/config.ini"
 mkdir -p "$(dirname "$CONFIG_FILE")"
 
 # Start overlay with default (bottom-left)
-./bin/phoneoverlay --show > /tmp/p4_t4_overlay.log 2>&1 &
+./bin/cronq --show > /tmp/p4_t4_overlay.log 2>&1 &
 OVERLAY_PID=$!
 sleep 1.5
 OVERLAY_XID=$(get_overlay_xid)
@@ -310,15 +310,15 @@ fi
 # -------------------------------------------------------------------------
 echo -e "\n${BLUE}--- T5: Supervisor Automatic Crash Recovery ---${NC}"
 # -------------------------------------------------------------------------
-CRASH_LOG="$HOME/.local/share/phoneoverlay/crash.log"
+CRASH_LOG="$HOME/.local/share/cronq/crash.log"
 rm -f "$CRASH_LOG"
 
 # Start supervisor in background
-scripts/phoneoverlay-supervisor --show > /tmp/p4_supervisor.log 2>&1 &
+scripts/cronq-supervisor --show > /tmp/p4_supervisor.log 2>&1 &
 SUPERVISOR_PID=$!
 sleep 2.0
 
-OVERLAY_PID1=$(pgrep -f "bin/phoneoverlay" | grep -v "$SUPERVISOR_PID" | head -n 1 || true)
+OVERLAY_PID1=$(pgrep -f "bin/cronq" | grep -v "$SUPERVISOR_PID" | head -n 1 || true)
 echo "  Supervisor PID: $SUPERVISOR_PID, Initial Overlay Child PID: $OVERLAY_PID1"
 
 if [ -z "$OVERLAY_PID1" ]; then
@@ -332,11 +332,11 @@ kill -9 "$OVERLAY_PID1"
 echo "  Sent SIGKILL to child process $OVERLAY_PID1. Waiting for supervisor recovery..."
 sleep 3.0
 
-OVERLAY_PID2=$(pgrep -f "bin/phoneoverlay" | grep -v "$SUPERVISOR_PID" | head -n 1 || true)
+OVERLAY_PID2=$(pgrep -f "bin/cronq" | grep -v "$SUPERVISOR_PID" | head -n 1 || true)
 echo "  Recovered Overlay Child PID: $OVERLAY_PID2"
 
 if [ -n "$OVERLAY_PID2" ] && [ "$OVERLAY_PID2" != "$OVERLAY_PID1" ]; then
-    echo -e "${GREEN}  [T5.1 PASS] Supervisor successfully restarted phoneoverlay (New PID: $OVERLAY_PID2).${NC}"
+    echo -e "${GREEN}  [T5.1 PASS] Supervisor successfully restarted cronq (New PID: $OVERLAY_PID2).${NC}"
 else
     echo -e "${RED}  [T5.1 FAIL] Supervisor did not restart child process!${NC}"
     kill -TERM $SUPERVISOR_PID 2>/dev/null || true
@@ -353,16 +353,16 @@ fi
 kill -TERM "$SUPERVISOR_PID"
 wait "$SUPERVISOR_PID" 2>/dev/null || true
 sleep 0.5
-killall -9 phoneoverlay 2>/dev/null || true
+killall -9 cronq 2>/dev/null || true
 echo -e "${GREEN}T5 PASS: Supervisor crash recovery and logging verified!${NC}"
 
 # -------------------------------------------------------------------------
 echo -e "\n${BLUE}--- T6: Installation and Desktop Autostart ---${NC}"
 # -------------------------------------------------------------------------
 make install
-if [ -x "$HOME/.local/bin/phoneoverlay" ] && \
-   [ -x "$HOME/.local/bin/phoneoverlay-supervisor" ] && \
-   [ -f "$HOME/.config/autostart/phoneoverlay.desktop" ]; then
+if [ -x "$HOME/.local/bin/cronq" ] && \
+   [ -x "$HOME/.local/bin/cronq-supervisor" ] && \
+   [ -f "$HOME/.config/autostart/cronq.desktop" ]; then
     echo -e "${GREEN}  [T6.1 PASS] All binaries, supervisor, and autostart desktop entry installed.${NC}"
 else
     echo -e "${RED}  [T6.1 FAIL] Installation missing files!${NC}"
@@ -370,13 +370,13 @@ else
 fi
 
 # Test installed binary help output
-"$HOME/.local/bin/phoneoverlay" --help > /dev/null
+"$HOME/.local/bin/cronq" --help > /dev/null
 echo -e "${GREEN}  [T6.2 PASS] Installed binary executed --help successfully.${NC}"
 
 make uninstall
-if [ ! -f "$HOME/.local/bin/phoneoverlay" ] && \
-   [ ! -f "$HOME/.local/bin/phoneoverlay-supervisor" ] && \
-   [ ! -f "$HOME/.config/autostart/phoneoverlay.desktop" ]; then
+if [ ! -f "$HOME/.local/bin/cronq" ] && \
+   [ ! -f "$HOME/.local/bin/cronq-supervisor" ] && \
+   [ ! -f "$HOME/.config/autostart/cronq.desktop" ]; then
     echo -e "${GREEN}  [T6.3 PASS] make uninstall cleanly removed all installed components.${NC}"
 else
     echo -e "${RED}  [T6.3 FAIL] make uninstall failed to remove some files!${NC}"

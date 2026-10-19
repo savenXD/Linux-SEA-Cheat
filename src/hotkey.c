@@ -178,10 +178,11 @@ static bool is_alt_physically_down(Display *dpy) {
                    is_keycode_down(keys, XKeysymToKeycode(dpy, XK_Meta_R));
     }
 
-    /* 3. Combined check with internal raw event tracker */
+    /* 3. Physical hardware keymap is strict source of truth for Alt.
+     * Keep internal raw modifier tracker in sync with physical state. */
+    s_raw_alt_down = alt_down;
     if (!ctrl_down && s_raw_ctrl_down) ctrl_down = true;
     if (!shift_down && s_raw_shift_down) shift_down = true;
-    if (!alt_down && s_raw_alt_down) alt_down = true;
 
     return (alt_down && !ctrl_down && !shift_down);
 }
@@ -347,84 +348,69 @@ static void handle_raw_key_press(int detail) {
         s_raw_alt_down = true;
     }
 
-    KeyCode x_l, x_u, g_l, g_u, a_l, a_u, s_l, s_u, f_l, f_u, d_l, d_u, p_l, p_u, m_l, m_u, w_l, w_u;
-    get_hotkey_keycodes(s_hotkey_dpy,
-                        &x_l, &x_u, &g_l, &g_u, &a_l, &a_u, &s_l, &s_u,
-                        &f_l, &f_u, &d_l, &d_u, &p_l, &p_u, &m_l, &m_u, &w_l, &w_u);
+    /* Check if Alt is physically held down (strictly using XQueryKeymap) */
+    bool alt_active = is_alt_physically_down(s_hotkey_dpy);
+    if (!alt_active) {
+        s_x_key_down = false;
+        s_g_key_down = false;
+        s_a_key_down = false;
+        s_s_key_down = false;
+        s_f_key_down = false;
+        s_d_key_down = false;
+        s_p_key_down = false;
+        s_m_key_down = false;
+        s_w_key_down = false;
+    } else {
+        KeyCode x_l, x_u, g_l, g_u, a_l, a_u, s_l, s_u, f_l, f_u, d_l, d_u, p_l, p_u, m_l, m_u, w_l, w_u;
+        get_hotkey_keycodes(s_hotkey_dpy,
+                            &x_l, &x_u, &g_l, &g_u, &a_l, &a_u, &s_l, &s_u,
+                            &f_l, &f_u, &d_l, &d_u, &p_l, &p_u, &m_l, &m_u, &w_l, &w_u);
 
-    KeyCode kc = (KeyCode)detail;
-    bool is_x = (kc == x_l) || (x_u != 0 && kc == x_u);
-    bool is_g = (kc == g_l) || (g_u != 0 && kc == g_u);
-    bool is_a = (kc == a_l) || (a_u != 0 && kc == a_u);
-    bool is_s = (kc == s_l) || (s_u != 0 && kc == s_u);
-    bool is_f = (kc == f_l) || (f_u != 0 && kc == f_u);
-    bool is_d = (kc == d_l) || (d_u != 0 && kc == d_u);
-    bool is_p = (kc == p_l) || (p_u != 0 && kc == p_u);
-    bool is_m = (kc == m_l) || (m_u != 0 && kc == m_u);
-    bool is_w = (kc == w_l) || (w_u != 0 && kc == w_u);
+        KeyCode kc = (KeyCode)detail;
+        bool is_x = (kc == x_l) || (x_u != 0 && kc == x_u);
+        bool is_g = (kc == g_l) || (g_u != 0 && kc == g_u);
+        bool is_a = (kc == a_l) || (a_u != 0 && kc == a_u);
+        bool is_s = (kc == s_l) || (s_u != 0 && kc == s_u);
+        bool is_f = (kc == f_l) || (f_u != 0 && kc == f_u);
+        bool is_d = (kc == d_l) || (d_u != 0 && kc == d_u);
+        bool is_p = (kc == p_l) || (p_u != 0 && kc == p_u);
+        bool is_m = (kc == m_l) || (m_u != 0 && kc == m_u);
+        bool is_w = (kc == w_l) || (w_u != 0 && kc == w_u);
 
-    if ((is_x || is_g || is_a || is_s || is_f || is_d || is_p || is_m || is_w) && is_alt_physically_down(s_hotkey_dpy)) {
         if (is_x) {
-            if (!s_x_key_down) {
-                s_x_key_down = true;
-                trigger_hotkey_toggle("XInput2 Raw Event");
-            }
+            trigger_hotkey_toggle("XInput2 Raw Event");
             return;
         }
         if (is_g) {
-            if (!s_g_key_down) {
-                s_g_key_down = true;
-                trigger_ghost_toggle("XInput2 Raw Event");
-            }
+            trigger_ghost_toggle("XInput2 Raw Event");
             return;
         }
         if (is_a) {
-            if (!s_a_key_down) {
-                s_a_key_down = true;
-                trigger_opacity_dec("XInput2 Raw Event");
-            }
+            trigger_opacity_dec("XInput2 Raw Event");
             return;
         }
         if (is_s) {
-            if (!s_s_key_down) {
-                s_s_key_down = true;
-                trigger_opacity_inc("XInput2 Raw Event");
-            }
+            trigger_opacity_inc("XInput2 Raw Event");
             return;
         }
         if (is_f) {
-            if (!s_f_key_down) {
-                s_f_key_down = true;
-                trigger_fullscreen("XInput2 Raw Event");
-            }
+            trigger_fullscreen("XInput2 Raw Event");
             return;
         }
         if (is_d) {
-            if (!s_d_key_down) {
-                s_d_key_down = true;
-                trigger_default_size("XInput2 Raw Event");
-            }
+            trigger_default_size("XInput2 Raw Event");
             return;
         }
         if (is_p) {
-            if (!s_p_key_down) {
-                s_p_key_down = true;
-                trigger_snap("XInput2 Raw Event");
-            }
+            trigger_snap("XInput2 Raw Event");
             return;
         }
         if (is_m) {
-            if (!s_m_key_down) {
-                s_m_key_down = true;
-                trigger_mode_cycle("XInput2 Raw Event");
-            }
+            trigger_mode_cycle("XInput2 Raw Event");
             return;
         }
         if (is_w) {
-            if (!s_w_key_down) {
-                s_w_key_down = true;
-                trigger_ghost_write("XInput2 Raw Event");
-            }
+            trigger_ghost_write("XInput2 Raw Event");
             return;
         }
     }
@@ -445,6 +431,15 @@ static void handle_raw_key_release(int detail) {
     }
     if (is_alt_keycode(s_hotkey_dpy, (KeyCode)detail)) {
         s_raw_alt_down = false;
+        s_x_key_down = false;
+        s_g_key_down = false;
+        s_a_key_down = false;
+        s_s_key_down = false;
+        s_f_key_down = false;
+        s_d_key_down = false;
+        s_p_key_down = false;
+        s_m_key_down = false;
+        s_w_key_down = false;
     }
 
     if (ghost_is_guard_active()) return;
@@ -632,6 +627,10 @@ static void hotkey_process_events(void) {
             }
 
             /* 2. Global hotkeys (Alt+X / G / A / S / F / D / P / M / W) */
+            if ((ev.xkey.state & Mod1Mask) == 0 || !is_alt_physically_down(s_hotkey_dpy)) {
+                continue;
+            }
+
             KeyCode x_l, x_u, g_l, g_u, a_l, a_u, s_l, s_u, f_l, f_u, d_l, d_u, p_l, p_u, m_l, m_u, w_l, w_u;
             get_hotkey_keycodes(s_hotkey_dpy,
                                 &x_l, &x_u, &g_l, &g_u, &a_l, &a_u, &s_l, &s_u,

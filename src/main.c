@@ -26,7 +26,7 @@ static gboolean on_shutdown_signal(gpointer user_data);
 
 static void get_ipc_socket_path(char *out, size_t size) {
     const char *data_dir = g_get_user_data_dir();
-    snprintf(out, size, "%s/phoneoverlay/ipc.sock", data_dir);
+    snprintf(out, size, "%s/cronq/ipc.sock", data_dir);
 }
 
 static bool send_ipc_command(const char *cmd, char *response_out, size_t response_size) {
@@ -66,6 +66,7 @@ static bool send_ipc_command(const char *cmd, char *response_out, size_t respons
             ssize_t n = read(fd, response_out + total, response_size - 1 - total);
             if (n <= 0) break;
             total += n;
+            if (response_out[total - 1] == '\n') break;
         }
         response_out[total] = '\0';
     }
@@ -83,6 +84,7 @@ static gboolean on_ipc_client_connected(GIOChannel *source, GIOCondition conditi
 
     int client_fd = accept(s_ipc_listen_fd, NULL, NULL);
     if (client_fd < 0) return G_SOURCE_CONTINUE;
+    fcntl(client_fd, F_SETFD, FD_CLOEXEC);
 
     size_t buf_cap = 131072;
     char *buf = g_malloc0(buf_cap);
@@ -138,6 +140,9 @@ static gboolean on_ipc_client_connected(GIOChannel *source, GIOCondition conditi
             overlay_go_home();
         } else if (g_ascii_strcasecmp(line, "RELOAD") == 0) {
             overlay_reload();
+        } else if (g_ascii_strcasecmp(line, "UNIVERSAL_RESET") == 0 ||
+                   g_ascii_strcasecmp(line, "RESET") == 0) {
+            overlay_universal_reset();
         } else if (g_ascii_strcasecmp(line, "GET_TEST_ENTRY") == 0) {
             const char *entry_txt = overlay_get_test_entry_text();
             size_t elen = strlen(entry_txt);
@@ -224,7 +229,7 @@ static bool ipc_server_init(void) {
         g_strlcpy(addr.sun_path, s_ipc_sock_path, sizeof(addr.sun_path));
         if (connect(test_fd, (struct sockaddr *)&addr, sizeof(addr)) == 0) {
             close(test_fd);
-            xutil_log_err("MAIN", "Another instance of PhoneOverlay is already running on '%s'.", s_ipc_sock_path);
+            xutil_log_err("MAIN", "Another instance of Cronq is already running on '%s'.", s_ipc_sock_path);
             return false;
         }
         close(test_fd);
@@ -320,7 +325,7 @@ int main(int argc, char **argv) {
     if (argc == 1) {
         char resp[256] = {0};
         if (send_ipc_command("SHOW", resp, sizeof(resp))) {
-            printf("PhoneOverlay: Brought up.\n");
+            printf("Cronq: Brought up.\n");
             return 0;
         }
     }
@@ -332,28 +337,28 @@ int main(int argc, char **argv) {
             strcmp(argv[i], "--quit") == 0 || strcmp(argv[i], "quit") == 0) {
             char resp[256] = {0};
             if (send_ipc_command("KILL", resp, sizeof(resp))) {
-                printf("PhoneOverlay: Killed.\n");
+                printf("Cronq: Killed.\n");
                 return 0;
             } else {
-                printf("PhoneOverlay is not running.\n");
+                printf("Cronq is not running.\n");
                 return 0;
             }
         } else if (strcmp(argv[i], "--toggle") == 0 || strcmp(argv[i], "toggle") == 0) {
             char resp[256] = {0};
             if (send_ipc_command("TOGGLE", resp, sizeof(resp))) {
-                printf("PhoneOverlay: Toggled visibility.\n");
+                printf("Cronq: Toggled visibility.\n");
                 return 0;
             } else {
-                fprintf(stderr, "Error: PhoneOverlay is not running.\n");
+                fprintf(stderr, "Error: Cronq is not running.\n");
                 return 1;
             }
         } else if (strcmp(argv[i], "--hide") == 0 || strcmp(argv[i], "hide") == 0) {
             char resp[256] = {0};
             if (send_ipc_command("HIDE", resp, sizeof(resp))) {
-                printf("PhoneOverlay: Overlay hidden.\n");
+                printf("Cronq: Overlay hidden.\n");
                 return 0;
             } else {
-                fprintf(stderr, "Error: PhoneOverlay is not running.\n");
+                fprintf(stderr, "Error: Cronq is not running.\n");
                 return 1;
             }
         } else if (strcmp(argv[i], "--mode") == 0) {
@@ -363,10 +368,10 @@ int main(int argc, char **argv) {
             }
             char resp[256] = {0};
             if (send_ipc_command(cmd, resp, sizeof(resp))) {
-                printf("PhoneOverlay: %s\n", resp);
+                printf("Cronq: %s\n", resp);
                 return 0;
             } else {
-                fprintf(stderr, "Error: PhoneOverlay is not running.\n");
+                fprintf(stderr, "Error: Cronq is not running.\n");
                 return 1;
             }
         } else if (strcmp(argv[i], "--ghost") == 0) {
@@ -376,10 +381,10 @@ int main(int argc, char **argv) {
             }
             char resp[256] = {0};
             if (send_ipc_command(cmd, resp, sizeof(resp))) {
-                printf("PhoneOverlay: %s\n", resp);
+                printf("Cronq: %s\n", resp);
                 return 0;
             } else {
-                fprintf(stderr, "Error: PhoneOverlay is not running.\n");
+                fprintf(stderr, "Error: Cronq is not running.\n");
                 return 1;
             }
         } else if (strcmp(argv[i], "--load") == 0) {
@@ -391,10 +396,10 @@ int main(int argc, char **argv) {
             snprintf(cmd, sizeof(cmd), "LOAD %s", argv[++i]);
             char resp[256] = {0};
             if (send_ipc_command(cmd, resp, sizeof(resp))) {
-                printf("PhoneOverlay: Loaded '%s'.\n", argv[i]);
+                printf("Cronq: Loaded '%s'.\n", argv[i]);
                 return 0;
             } else {
-                fprintf(stderr, "Error: PhoneOverlay is not running.\n");
+                fprintf(stderr, "Error: Cronq is not running.\n");
                 return 1;
             }
         } else if (strcmp(argv[i], "--app") == 0) {
@@ -406,10 +411,10 @@ int main(int argc, char **argv) {
             snprintf(cmd, sizeof(cmd), "APP %s", argv[++i]);
             char resp[256] = {0};
             if (send_ipc_command(cmd, resp, sizeof(resp))) {
-                printf("PhoneOverlay: Switched to '%s'.\n", argv[i]);
+                printf("Cronq: Switched to '%s'.\n", argv[i]);
                 return 0;
             } else {
-                fprintf(stderr, "Error: PhoneOverlay is not running.\n");
+                fprintf(stderr, "Error: Cronq is not running.\n");
                 return 1;
             }
         } else if (strcmp(argv[i], "--back") == 0) {
@@ -417,7 +422,7 @@ int main(int argc, char **argv) {
             if (send_ipc_command("BACK", resp, sizeof(resp))) {
                 return 0;
             } else {
-                fprintf(stderr, "Error: PhoneOverlay is not running.\n");
+                fprintf(stderr, "Error: Cronq is not running.\n");
                 return 1;
             }
         } else if (strcmp(argv[i], "--home") == 0) {
@@ -425,7 +430,7 @@ int main(int argc, char **argv) {
             if (send_ipc_command("HOME", resp, sizeof(resp))) {
                 return 0;
             } else {
-                fprintf(stderr, "Error: PhoneOverlay is not running.\n");
+                fprintf(stderr, "Error: Cronq is not running.\n");
                 return 1;
             }
         } else if (strcmp(argv[i], "--reload") == 0) {
@@ -433,7 +438,7 @@ int main(int argc, char **argv) {
             if (send_ipc_command("RELOAD", resp, sizeof(resp))) {
                 return 0;
             } else {
-                fprintf(stderr, "Error: PhoneOverlay is not running.\n");
+                fprintf(stderr, "Error: Cronq is not running.\n");
                 return 1;
             }
         } else if (strcmp(argv[i], "--get-entry") == 0) {
@@ -445,7 +450,7 @@ int main(int argc, char **argv) {
                 return 0;
             } else {
                 g_free(resp);
-                fprintf(stderr, "Error: PhoneOverlay is not running.\n");
+                fprintf(stderr, "Error: Cronq is not running.\n");
                 return 1;
             }
         } else if (strcmp(argv[i], "--set-entry") == 0 && i + 1 < argc) {
@@ -456,7 +461,7 @@ int main(int argc, char **argv) {
             if (ok) {
                 return 0;
             } else {
-                fprintf(stderr, "Error: PhoneOverlay is not running.\n");
+                fprintf(stderr, "Error: Cronq is not running.\n");
                 return 1;
             }
         } else if (strcmp(argv[i], "--clear-entry") == 0) {
@@ -464,7 +469,7 @@ int main(int argc, char **argv) {
             if (send_ipc_command("CLEAR_TEST_ENTRY", resp, sizeof(resp))) {
                 return 0;
             } else {
-                fprintf(stderr, "Error: PhoneOverlay is not running.\n");
+                fprintf(stderr, "Error: Cronq is not running.\n");
                 return 1;
             }
         } else if (strcmp(argv[i], "--has-modal") == 0) {
@@ -473,7 +478,7 @@ int main(int argc, char **argv) {
                 printf("%s", resp);
                 return 0;
             } else {
-                fprintf(stderr, "Error: PhoneOverlay is not running.\n");
+                fprintf(stderr, "Error: Cronq is not running.\n");
                 return 1;
             }
         } else if (strcmp(argv[i], "--close-modal") == 0) {
@@ -481,7 +486,7 @@ int main(int argc, char **argv) {
             if (send_ipc_command("CLOSE_MODAL", resp, sizeof(resp))) {
                 return 0;
             } else {
-                fprintf(stderr, "Error: PhoneOverlay is not running.\n");
+                fprintf(stderr, "Error: Cronq is not running.\n");
                 return 1;
             }
         } else if (strcmp(argv[i], "--snap") == 0 || strcmp(argv[i], "snap") == 0) {
@@ -489,7 +494,7 @@ int main(int argc, char **argv) {
             if (send_ipc_command("SNAP", resp, sizeof(resp))) {
                 return 0;
             } else {
-                fprintf(stderr, "Error: PhoneOverlay is not running.\n");
+                fprintf(stderr, "Error: Cronq is not running.\n");
                 return 1;
             }
         } else if (strcmp(argv[i], "--ghost-write") == 0 || strcmp(argv[i], "--ghost-writer") == 0) {
@@ -497,7 +502,7 @@ int main(int argc, char **argv) {
             if (send_ipc_command("GHOST_WRITE", resp, sizeof(resp))) {
                 return 0;
             } else {
-                fprintf(stderr, "Error: PhoneOverlay is not running.\n");
+                fprintf(stderr, "Error: Cronq is not running.\n");
                 return 1;
             }
         } else if (strcmp(argv[i], "--paste") == 0) {
@@ -505,16 +510,25 @@ int main(int argc, char **argv) {
             if (send_ipc_command("PASTE", resp, sizeof(resp))) {
                 return 0;
             } else {
-                fprintf(stderr, "Error: PhoneOverlay is not running.\n");
+                fprintf(stderr, "Error: Cronq is not running.\n");
+                return 1;
+            }
+        } else if (strcmp(argv[i], "--reset") == 0 || strcmp(argv[i], "--refresh-all") == 0 || strcmp(argv[i], "reset") == 0) {
+            char resp[256] = {0};
+            if (send_ipc_command("UNIVERSAL_RESET", resp, sizeof(resp))) {
+                printf("Cronq: Universal reset triggered (new state).\n");
+                return 0;
+            } else {
+                fprintf(stderr, "Error: Cronq is not running.\n");
                 return 1;
             }
         } else if (strcmp(argv[i], "--reload-config") == 0) {
             char resp[256] = {0};
             if (send_ipc_command("RELOAD_CONFIG", resp, sizeof(resp))) {
-                printf("PhoneOverlay: Configuration reloaded.\n");
+                printf("Cronq: Configuration reloaded.\n");
                 return 0;
             } else {
-                fprintf(stderr, "Error: PhoneOverlay is not running.\n");
+                fprintf(stderr, "Error: Cronq is not running.\n");
                 return 1;
             }
         } else if (strcmp(argv[i], "--opacity") == 0 && i + 1 < argc) {
@@ -524,7 +538,7 @@ int main(int argc, char **argv) {
             if (send_ipc_command(cmd, resp, sizeof(resp))) {
                 return 0;
             } else {
-                fprintf(stderr, "Error: PhoneOverlay is not running.\n");
+                fprintf(stderr, "Error: Cronq is not running.\n");
                 return 1;
             }
         } else if (strcmp(argv[i], "--size") == 0 && i + 2 < argc) {
@@ -534,7 +548,7 @@ int main(int argc, char **argv) {
             if (send_ipc_command(cmd, resp, sizeof(resp))) {
                 return 0;
             } else {
-                fprintf(stderr, "Error: PhoneOverlay is not running.\n");
+                fprintf(stderr, "Error: Cronq is not running.\n");
                 return 1;
             }
         } else if (strcmp(argv[i], "--get-geometry") == 0) {
@@ -543,7 +557,7 @@ int main(int argc, char **argv) {
                 printf("%s", resp);
                 return 0;
             } else {
-                fprintf(stderr, "Error: PhoneOverlay is not running.\n");
+                fprintf(stderr, "Error: Cronq is not running.\n");
                 return 1;
             }
         } else if (strcmp(argv[i], "--status") == 0 || strcmp(argv[i], "status") == 0) {
@@ -552,7 +566,7 @@ int main(int argc, char **argv) {
                 printf("%s", resp);
                 return 0;
             } else {
-                fprintf(stderr, "Error: PhoneOverlay is not running.\n");
+                fprintf(stderr, "Error: Cronq is not running.\n");
                 return 1;
             }
         } else if (strcmp(argv[i], "--fullscreen") == 0) {
@@ -560,7 +574,7 @@ int main(int argc, char **argv) {
             if (send_ipc_command("FULLSCREEN", resp, sizeof(resp))) {
                 return 0;
             } else {
-                fprintf(stderr, "Error: PhoneOverlay is not running.\n");
+                fprintf(stderr, "Error: Cronq is not running.\n");
                 return 1;
             }
         } else if (strcmp(argv[i], "--default-size") == 0) {
@@ -568,14 +582,14 @@ int main(int argc, char **argv) {
             if (send_ipc_command("DEFAULT_SIZE", resp, sizeof(resp))) {
                 return 0;
             } else {
-                fprintf(stderr, "Error: PhoneOverlay is not running.\n");
+                fprintf(stderr, "Error: Cronq is not running.\n");
                 return 1;
             }
         } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
-            printf("Usage: phone-overlay [OPTIONS] or %s [OPTIONS]\n", argv[0]);
+            printf("Usage: cronq [OPTIONS] or %s [OPTIONS]\n", argv[0]);
             printf("Quick commands:\n");
-            printf("  phone-overlay                 Bring up overlay (launch if not running)\n");
-            printf("  phone-overlay kill            Kill running overlay daemon\n");
+            printf("  cronq                 Bring up overlay (launch if not running)\n");
+            printf("  cronq kill            Kill running overlay daemon\n");
             printf("Options / Subcommands:\n");
             printf("  --show, show                  Show / bring up overlay\n");
             printf("  --hide, hide                  Hide running overlay\n");
@@ -590,6 +604,7 @@ int main(int argc, char **argv) {
             printf("  --back                        Navigate back in current app (or home if at start)\n");
             printf("  --home                        Return to two-app home screen\n");
             printf("  --reload                      Reload active webview\n");
+            printf("  --reset, reset                Reset overlay to new-like state (clear history, reload apps)\n");
             printf("  --opacity <val>               Set overlay opacity (0.20 to 1.00)\n");
             printf("  --size <w> <h>                Set overlay dimensions in pixels\n");
             printf("  --fullscreen                  Toggle fullscreen mode\n");
@@ -611,7 +626,7 @@ int main(int argc, char **argv) {
         if (strcmp(argv[i], "--show") == 0 || strcmp(argv[i], "show") == 0) {
             char resp[256] = {0};
             if (send_ipc_command("SHOW", resp, sizeof(resp))) {
-                printf("PhoneOverlay: Overlay shown.\n");
+                printf("Cronq: Overlay shown.\n");
                 return 0;
             }
             /* Not running yet; proceed to launch daemon with start_visible = TRUE */
@@ -619,7 +634,7 @@ int main(int argc, char **argv) {
         }
     }
 
-    xutil_log("MAIN", "=== Starting PhoneOverlay (Phase 5) ===");
+    xutil_log("MAIN", "=== Starting Cronq ===");
 
     /* 1. Install non-fatal X error handlers */
     xutil_install_error_handlers();
@@ -715,7 +730,7 @@ int main(int argc, char **argv) {
 
     if (!start_visible) {
         printf("\n========================================================================\n");
-        printf(" PhoneOverlay started in BACKGROUND mode (default: HIDDEN)\n");
+        printf(" Cronq started in BACKGROUND mode (default: HIDDEN)\n");
         printf(" - Press [Ctrl] + [Shift] + [Alt] + [%c] to toggle visibility.\n", cfg->toggle_key);
         printf(" - Press [Ctrl] + [Shift] + [Alt] + [%c] to cycle MIRROR / EXCLUSIVE.\n", cfg->mode_key);
         printf(" - Press [Ctrl] + [Shift] + [Alt] + [%c] to toggle GHOST mode.\n", cfg->ghost_key);
