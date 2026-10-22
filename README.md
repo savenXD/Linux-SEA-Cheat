@@ -23,13 +23,6 @@
 
 ## ⚡ 1-Step Consumer Quick Install
 
-Anyone on a compatible Linux system can install and launch Cronq with simple terminal commands:
-
-```bash
-git clone https://github.com/savenXD/Linux-SEA-Cheat.git cronq
-cd cronq
-./install.sh
-```
 
 **What the installer does automatically:**
 - 🔍 Detects your distribution (`apt` for Ubuntu/Mint/Debian, `dnf` for Fedora/RHEL, `pacman` for Arch/Manjaro, `zypper` for openSUSE).
