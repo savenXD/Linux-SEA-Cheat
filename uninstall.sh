@@ -23,6 +23,10 @@ cd "$SCRIPT_DIR"
 echo -e "${BOLD}[1/3] Terminating any running Cronq processes...${NC}"
 pkill -9 -f cronq-supervisor 2>/dev/null || true
 pkill -9 -f cronq 2>/dev/null || true
+pkill -9 -f phoneoverlay-supervisor 2>/dev/null || true
+pkill -9 -f phoneoverlay 2>/dev/null || true
+rm -f "$HOME/.config/autostart/phoneoverlay.desktop"
+rm -f "$HOME/.local/bin/phoneoverlay" "$HOME/.local/bin/phoneoverlay-supervisor" "$HOME/.local/bin/phone-overlay"
 sleep 1
 echo -e "${GREEN}✓ All processes stopped.${NC}"
 

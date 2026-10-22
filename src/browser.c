@@ -217,6 +217,8 @@ static void on_popup_destroy(GtkWidget *widget, gpointer user_data) {
     }
 }
 
+static void on_web_process_terminated(WebKitWebView *view, WebKitWebProcessTerminationReason reason, gpointer user_data);
+
 static GtkWidget *on_web_view_create(WebKitWebView *web_view, WebKitNavigationAction *action, gpointer user_data) {
     (void)user_data;
     WebKitNavigationType nav_type = webkit_navigation_action_get_navigation_type(action);
@@ -243,6 +245,7 @@ static GtkWidget *on_web_view_create(WebKitWebView *web_view, WebKitNavigationAc
     s_active_popup = popup;
     g_signal_connect(popup, "close", G_CALLBACK(on_popup_close), NULL);
     g_signal_connect(popup, "destroy", G_CALLBACK(on_popup_destroy), NULL);
+    g_signal_connect(popup, "web-process-terminated", G_CALLBACK(on_web_process_terminated), NULL);
 
     if (s_popup_created_cb) {
         s_popup_created_cb(GTK_WIDGET(popup), s_popup_ud);
@@ -374,6 +377,30 @@ static gboolean on_webview_button_press(GtkWidget *widget, GdkEventButton *event
     return FALSE; /* allow WebKit to process click */
 }
 
+static void on_web_process_terminated(WebKitWebView *view, WebKitWebProcessTerminationReason reason, gpointer user_data) {
+    (void)user_data;
+    const char *reason_str = "unknown";
+    if (reason == WEBKIT_WEB_PROCESS_CRASHED) reason_str = "crashed";
+    else if (reason == WEBKIT_WEB_PROCESS_EXCEEDED_MEMORY_LIMIT) reason_str = "exceeded memory limit";
+    else if (reason == WEBKIT_WEB_PROCESS_TERMINATED_BY_API) reason_str = "terminated by API";
+
+    const char *uri = webkit_web_view_get_uri(view);
+    xutil_log_err("BROWSER", "WebKit WebProcess terminated (reason: %s) while displaying '%s'. Auto-recovering...",
+                  reason_str, uri ? uri : "unknown");
+
+    if (uri && uri[0] != '\0') {
+        webkit_web_view_reload(view);
+    } else {
+        if (view == s_view_chatgpt) {
+            webkit_web_view_load_uri(view, "https://chatgpt.com");
+        } else {
+            const AppConfig *cfg = config_get();
+            const char *fallback = (cfg && cfg->home_url[0] != '\0') ? cfg->home_url : "about:blank";
+            webkit_web_view_load_uri(view, fallback);
+        }
+    }
+}
+
 static void configure_webview(WebKitWebView *view, const AppConfig *cfg) {
     WebKitSettings *settings = webkit_web_view_get_settings(view);
     webkit_settings_set_user_agent(settings, cfg->user_agent);
@@ -395,6 +422,7 @@ static void configure_webview(WebKitWebView *view, const AppConfig *cfg) {
     g_signal_connect(view, "notify::uri", G_CALLBACK(on_notify_uri), NULL);
     g_signal_connect(view, "create", G_CALLBACK(on_web_view_create), NULL);
     g_signal_connect(view, "decide-policy", G_CALLBACK(on_decide_policy), NULL);
+    g_signal_connect(view, "web-process-terminated", G_CALLBACK(on_web_process_terminated), NULL);
 }
 
 static GtkWidget *create_scrolled_container(WebKitWebView *view, int width) {
@@ -746,14 +774,20 @@ void browser_paste(void) {
             g_object_unref(pb);
         }
 
-        /* Fallback: If pixbuf extraction failed, try latest snap file */
-        if (!b64 && g_file_test("/tmp/cronq_latest_snap.png", G_FILE_TEST_EXISTS)) {
-            gchar *contents = NULL;
-            gsize length = 0;
-            if (g_file_get_contents("/tmp/cronq_latest_snap.png", &contents, &length, NULL)) {
-                b64 = g_base64_encode((const guchar *)contents, length);
-                g_free(contents);
+        /* Fallback: If pixbuf extraction failed, try latest snap file in user runtime dir then /tmp */
+        if (!b64) {
+            const char *rdir = g_get_user_runtime_dir();
+            char *user_snap = rdir ? g_build_filename(rdir, "cronq", "latest_snap.png", NULL) : NULL;
+            const char *snap_target = (user_snap && g_file_test(user_snap, G_FILE_TEST_EXISTS)) ? user_snap : "/tmp/cronq_latest_snap.png";
+            if (g_file_test(snap_target, G_FILE_TEST_EXISTS)) {
+                gchar *contents = NULL;
+                gsize length = 0;
+                if (g_file_get_contents(snap_target, &contents, &length, NULL)) {
+                    b64 = g_base64_encode((const guchar *)contents, length);
+                    g_free(contents);
+                }
             }
+            g_free(user_snap);
         }
 
         if (b64) {

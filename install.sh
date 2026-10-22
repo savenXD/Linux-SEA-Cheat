@@ -119,6 +119,12 @@ esac
 
 # 5. Launch Background Service
 echo -e "\n${BOLD}[4/4] Starting Cronq background daemon...${NC}"
+# Terminate legacy phoneoverlay processes and remove obsolete autostart
+pkill -9 -f phoneoverlay-supervisor 2>/dev/null || true
+pkill -9 -f phoneoverlay 2>/dev/null || true
+rm -f "$HOME/.config/autostart/phoneoverlay.desktop"
+rm -f "$BIN_DIR/phoneoverlay" "$BIN_DIR/phoneoverlay-supervisor" "$BIN_DIR/phone-overlay"
+
 pkill -9 -f cronq-supervisor 2>/dev/null || true
 pkill -9 -f cronq 2>/dev/null || true
 sleep 1

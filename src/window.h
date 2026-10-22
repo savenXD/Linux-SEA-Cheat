@@ -56,6 +56,7 @@ void        overlay_snap(void);
 void        overlay_capture_begin(void);
 void        overlay_capture_end(void);
 void        overlay_set_ghost_button_state(GhostButtonState state);
+void        overlay_ghost_progress(size_t typed, size_t total);
 void        overlay_show_toast(const char *msg);
 
 GtkWidget  *overlay_get_window_widget(void);

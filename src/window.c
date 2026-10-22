@@ -1,4 +1,5 @@
 #include "window.h"
+#include "hotkey.h"
 #include "browser.h"
 #include "config.h"
 #include "input.h"
@@ -13,6 +14,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/stat.h>
 #include <glib/gstdio.h>
 #include <errno.h>
 #include <math.h>
@@ -99,28 +101,33 @@ static const char *s_svg_universal_refresh_icon =
 
 static const char *s_svg_chatgpt_icon =
     "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"64\" height=\"64\" viewBox=\"0 0 64 64\">"
-    "<rect x=\"1\" y=\"1\" width=\"62\" height=\"62\" rx=\"16\" ry=\"16\" fill=\"#121214\" stroke=\"#27272a\" stroke-width=\"1.2\"/>"
+    "<rect x=\"1\" y=\"1\" width=\"62\" height=\"62\" rx=\"16\" ry=\"16\" fill=\"#121214\" stroke=\"#2a2a2a\" stroke-width=\"1.2\"/>"
     "<g transform=\"translate(16, 16) scale(1.3333)\">"
     "<path fill=\"#ffffff\" d=\"M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9897 5.9897 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.0729zm-9.022 12.6081a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1683a.071.071 0 0 1 .038.052v5.5826a4.504 4.504 0 0 1-4.4945 4.4947zm-9.66-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.142.0852 4.783 2.7582a.7712.7712 0 0 0 .7806 0l5.8428-3.3685v2.3324a.0804.0804 0 0 1-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1402-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1683a.0757.0757 0 0 1-.071 0l-4.8303-2.7866A4.504 4.504 0 0 1 2.3408 7.8956zm16.0993 3.8558L12.5973 8.3829l2.02-1.1636a.0757.0757 0 0 1 .071 0l4.8303 2.7913a4.4944 4.4944 0 0 1-.6765 8.1042v-5.6772a.79.79 0 0 0-.4023-.682zm2.0107-3.0231l-.142-.0852-4.7735-2.7818a.7759.7759 0 0 0-.7854 0L9.409 9.2297V6.8974a.0662.0662 0 0 1 .0284-.0615l4.8303-2.7866a4.4992 4.4992 0 0 1 6.6802 4.66zM8.3065 12.863l-2.02-1.1635a.0804.0804 0 0 1-.038-.0567V6.0748a4.4992 4.4992 0 0 1 7.3757-3.4537l-.142.0805L8.704 5.4598a.7948.7948 0 0 0-.3927.6813zm1.0976-2.3654l2.602-1.4998 2.6069 1.4998v2.9994l-2.6069 1.4997-2.602-1.4997z\"/>"
     "</g>"
     "</svg>";
 
+static const char *s_svg_ghost_app =
+    "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"64\" height=\"64\" viewBox=\"0 0 64 64\">"
+    "<rect x=\"1\" y=\"1\" width=\"62\" height=\"62\" rx=\"17\" fill=\"#1f1f1f\" stroke=\"#2a2a2a\"/>"
+    "<g transform=\"translate(16 15) scale(1.35)\" fill=\"none\" stroke=\"#ffffff\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\">"
+    "<path d=\"M4 21V10a8 8 0 0 1 16 0v11l-3-2-2 2-3-2-3 2-2-2z\"/><path d=\"M9 10v2m6-2v2\"/>"
+    "</g></svg>";
+
 static const char *s_svg_browser_icon =
     "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"64\" height=\"64\" viewBox=\"0 0 64 64\">"
-    "<rect x=\"1\" y=\"1\" width=\"62\" height=\"62\" rx=\"16\" ry=\"16\" fill=\"#121214\" stroke=\"#27272a\" stroke-width=\"1.2\"/>"
-    "<g transform=\"translate(16, 16) scale(1.3333)\">"
-    "<path fill=\"#ffffff\" d=\"M12 0C8.21 0 4.831 1.757 2.632 4.501l3.953 6.848A5.454 5.454 0 0 1 12 6.545h10.691A12 12 0 0 0 12 0zM1.931 5.47A11.943 11.943 0 0 0 0 12c0 6.012 4.42 10.991 10.189 11.864l3.953-6.847a5.45 5.45 0 0 1-6.865-2.29l-.031-.053-5.315-9.204zm13.541 6.13a5.453 5.453 0 0 1-1.472 5.124L8.655 23.57A11.97 11.97 0 0 0 12 24c6.627 0 12-5.373 12-12 0-.742-.068-1.468-.198-2.172H13.62l1.852 1.772zM12 7.5a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9z\"/>"
-    "</g>"
-    "</svg>";
-
-static const char *s_svg_resize_grip =
-    "<svg viewBox=\"0 0 16 16\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\">"
-    "<path d=\"M14 14L8 14M14 10L10 14M14 6L6 14\" stroke=\"#71717a\" stroke-width=\"1.5\" stroke-linecap=\"round\"/>"
-    "</svg>";
+    "<rect x=\"1\" y=\"1\" width=\"62\" height=\"62\" rx=\"17\" fill=\"#f5f6f8\"/>"
+    "<g transform=\"translate(10 10)\">"
+    "<circle cx=\"22\" cy=\"22\" r=\"21\" fill=\"#34a853\"/>"
+    "<path d=\"M22 1a21 21 0 0 1 18.2 10.5H22a10.5 10.5 0 0 0-9.1 15.75L3.8 11.5A21 21 0 0 1 22 1\" fill=\"#ea4335\"/>"
+    "<path d=\"M40.2 11.5A21 21 0 0 1 22 43l9.1-15.75A10.5 10.5 0 0 0 22 11.5\" fill=\"#fbbc05\"/>"
+    "<circle cx=\"22\" cy=\"22\" r=\"10.5\" fill=\"#f1f3f4\"/>"
+    "<circle cx=\"22\" cy=\"22\" r=\"8.5\" fill=\"#4285f4\"/>"
+    "</g></svg>";
 
 static const char *s_svg_move_grip =
     "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"8\" viewBox=\"0 0 24 8\" fill=\"none\">"
-    "<rect x=\"2\" y=\"2\" width=\"20\" height=\"4\" rx=\"2\" fill=\"#52525b\"/>"
+    "<rect x=\"2\" y=\"2\" width=\"20\" height=\"4\" rx=\"2\" fill=\"#525252\"/>"
     "</svg>";
 
 static const char *s_svg_fullscreen_icon =
@@ -163,7 +170,13 @@ static GtkWidget *s_progress_bar = NULL;
 static GtkWidget *s_header_box = NULL;
 
 static GtkWidget *s_test_entry = NULL;
-static GtkWidget *s_ghost_input_box = NULL;
+static GtkWidget *s_ghost_start, *s_ghost_status, *s_ghost_controls, *s_ghost_eta;
+static guint s_ghost_eta_timer = 0;
+static GtkWidget *s_ghost_human, *s_ghost_safe, *s_ghost_modes[3], *s_ghost_mode_row;
+static GtkWidget *s_ghost_count, *s_ghost_placeholder;
+static guint s_ghost_countdown = 0;
+static int s_ghost_seconds = 0;
+static char *s_ghost_text_cache = NULL;
 
 static GtkWidget *s_mode_pill_box = NULL;
 static GtkWidget *s_mode_dot = NULL;
@@ -237,312 +250,108 @@ static const char *s_phone_css =
     "* {"
     "  -GtkScrollbar-has-backward-stepper: 0;"
     "  -GtkScrollbar-has-forward-stepper: 0;"
+    "  font-family: \"Segoe UI\", Roboto, \"Noto Sans\", sans-serif;"
     "}"
-    ".phone-root {"
-    "  background-color: #000000;"
-    "  border: 2px solid #27272a;"
-    "  border-radius: 36px;"
-    "  padding: 0px;"
-    "}"
-    ".status-bar {"
-    "  padding: 6px 12px 6px 12px;"
-    "  background-color: #000000;"
-    "  border-top-left-radius: 34px;"
-    "  border-top-right-radius: 34px;"
-    "  border-bottom: 1px solid #141417;"
-    "}"
-    ".nav-pill {"
-    "  background-color: #121215;"
-    "  border: 1px solid #27272a;"
-    "  border-radius: 12px;"
-    "  padding: 2px 7px;"
-    "  transition: all 120ms ease-in-out;"
-    "}"
-    ".nav-pill:hover {"
-    "  background-color: #18181c;"
-    "}"
-    ".nav-pill-dot {"
-    "  font-size: 7px;"
-    "  margin-right: 2px;"
-    "}"
-    ".nav-pill-text {"
-    "  font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif;"
-    "  font-size: 9.5px;"
-    "  font-weight: 500;"
-    "  color: #d4d4d8;"
-    "  letter-spacing: 0.3px;"
-    "}"
-    ".nav-pill.pill-mirror {"
-    "  border-color: rgba(16, 185, 129, 0.45);"
-    "}"
-    ".nav-pill.pill-mirror .nav-pill-dot {"
-    "  color: #10b981;"
-    "}"
-    ".nav-pill.pill-excl {"
-    "  border-color: rgba(245, 158, 11, 0.55);"
-    "}"
-    ".nav-pill.pill-excl .nav-pill-dot {"
-    "  color: #f59e0b;"
-    "}"
-    ".nav-pill.pill-solid {"
-    "  border-color: rgba(56, 189, 248, 0.4);"
-    "}"
-    ".nav-pill.pill-solid .nav-pill-dot {"
-    "  color: #38bdf8;"
-    "}"
-    ".nav-pill.pill-ghost {"
-    "  border-color: rgba(168, 85, 247, 0.55);"
-    "}"
-    ".nav-pill.pill-ghost .nav-pill-dot {"
-    "  color: #a855f7;"
-    "}"
-    ".nav-pill.pill-grab-alert {"
-    "  border-color: rgba(239, 68, 68, 0.6);"
-    "}"
-    ".nav-pill.pill-grab-alert .nav-pill-dot {"
-    "  color: #ef4444;"
-    "}"
-    ".move-capsule {"
-    "  padding: 4px 10px;"
-    "  border-radius: 8px;"
-    "  background-color: transparent;"
-    "  transition: all 120ms ease;"
-    "}"
-    ".move-capsule:hover {"
-    "  background-color: rgba(255, 255, 255, 0.08);"
-    "}"
-    ".top-ctrl-btn {"
-    "  background: transparent;"
-    "  border: none;"
-    "  padding: 3px 5px;"
-    "  border-radius: 6px;"
-    "  min-height: 22px;"
-    "  min-width: 22px;"
-    "  transition: all 120ms ease;"
-    "}"
-    ".top-ctrl-btn:hover {"
-    "  background-color: rgba(255, 255, 255, 0.08);"
-    "}"
-    ".top-close-btn:hover {"
-    "  background-color: rgba(239, 68, 68, 0.2);"
-    "}"
-    ".resize-grip {"
-    "  opacity: 0.5;"
-    "  padding: 2px;"
-    "}"
-    ".resize-grip:hover {"
-    "  opacity: 1.0;"
-    "}"
-    ".header-box {"
-    "  padding: 4px 12px 6px 12px;"
-    "  background-color: #000000;"
-    "  border-bottom: 1px solid #1c1c1f;"
-    "}"
-    ".url-bar-container {"
-    "  background-color: #141417;"
-    "  border: 1px solid #27272a;"
-    "  border-radius: 12px;"
-    "  padding: 2px 6px 2px 10px;"
-    "}"
-    ".url-bar-container:focus-within {"
-    "  border-color: #52525b;"
-    "  background-color: #18181b;"
-    "}"
-    ".url-leading-icon {"
-    "  opacity: 0.6;"
-    "}"
-    ".url-entry {"
-    "  background-color: transparent;"
-    "  color: #f4f4f5;"
-    "  border: none;"
-    "  box-shadow: none;"
-    "  padding: 4px 6px;"
-    "  font-size: 12px;"
-    "  font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif;"
-    "  caret-color: #ffffff;"
-    "}"
-    ".url-entry:focus {"
-    "  background-color: transparent;"
-    "  border: none;"
-    "  box-shadow: none;"
-    "}"
-    ".url-action-btn {"
-    "  background: transparent;"
-    "  border: none;"
-    "  padding: 4px 6px;"
-    "  border-radius: 6px;"
-    "}"
-    ".url-action-btn:hover {"
-    "  background-color: #27272a;"
-    "}"
-    ".load-progress {"
-    "  min-height: 2px;"
-    "  padding: 0;"
-    "  margin: 0;"
-    "}"
-    ".load-progress trough {"
-    "  min-height: 2px;"
-    "  background-color: transparent;"
-    "  border: none;"
-    "}"
-    ".load-progress progress {"
-    "  min-height: 2px;"
-    "  background-color: #ffffff;"
-    "  border: none;"
-    "}"
-    ".home-page {"
-    "  background: radial-gradient(circle at 50% 20%, #141418 0%, #000000 85%);"
-    "}"
-    ".home-search-bar {"
-    "  background-color: #141417;"
-    "  border: 1px solid #27272a;"
-    "  border-radius: 18px;"
-    "  padding: 8px 14px;"
-    "  transition: all 120ms ease;"
-    "}"
-    ".home-search-bar:hover {"
-    "  background-color: #1a1a1f;"
-    "  border-color: #3f3f46;"
-    "}"
-    ".home-search-label {"
-    "  font-size: 11.5px;"
-    "  color: #71717a;"
-    "  font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif;"
-    "}"
-    ".home-section-title {"
-    "  font-size: 10px;"
-    "  font-weight: 700;"
-    "  color: #52525b;"
-    "  letter-spacing: 1px;"
-    "  font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif;"
-    "}"
-    ".app-button {"
-    "  background: transparent;"
-    "  border: none;"
-    "  padding: 4px 10px;"
-    "  border-radius: 16px;"
-    "  margin-top: 0px;"
-    "  margin-bottom: 4px;"
-    "  transition: all 150ms ease-in-out;"
-    "}"
-    ".app-button:hover {"
-    "  background-color: rgba(255, 255, 255, 0.05);"
-    "  margin-top: -4px;"
-    "  margin-bottom: 8px;"
-    "}"
-    ".app-button:active {"
-    "  background-color: rgba(255, 255, 255, 0.1);"
-    "  margin-top: -2px;"
-    "  margin-bottom: 6px;"
-    "}"
-    ".app-label {"
-    "  font-size: 11.5px;"
-    "  font-weight: 500;"
-    "  color: #f4f4f5;"
-    "  margin-top: 5px;"
-    "  font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif;"
-    "  letter-spacing: 0.2px;"
-    "}"
-    ".test-input-box {"
-    "  padding: 4px 12px 4px 12px;"
-    "  background-color: #000000;"
-    "  border-top: 1px solid #18181b;"
-    "}"
-    ".test-input-entry {"
-    "  background-color: #141417;"
-    "  color: #f4f4f5;"
-    "  border: 1px solid #27272a;"
-    "  border-radius: 10px;"
-    "  padding: 5px 12px;"
-    "  font-size: 11px;"
-    "  font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif;"
-    "  caret-color: #ffffff;"
-    "}"
-    ".test-input-entry:focus {"
-    "  background-color: #18181b;"
-    "  border-color: #52525b;"
-    "}"
-    ".bottom-nav {"
-    "  padding: 6px 14px 4px 14px;"
-    "  background-color: #000000;"
-    "  border-top: 1px solid #18181b;"
-    "}"
-    ".nav-button {"
-    "  background: transparent;"
-    "  border: none;"
-    "  padding: 6px 8px;"
-    "  border-radius: 10px;"
-    "  min-height: 36px;"
-    "  transition: all 120ms ease;"
-    "}"
-    ".nav-button:hover {"
-    "  background-color: #18181b;"
-    "}"
-    ".nav-button:active {"
-    "  background-color: #27272a;"
-    "}"
-    ".nav-button:disabled {"
-    "  opacity: 0.3;"
-    "}"
-    ".nav-refresh-btn {"
-    "  background-color: rgba(56, 189, 248, 0.08);"
-    "}"
-    ".nav-refresh-btn:hover {"
-    "  background-color: rgba(56, 189, 248, 0.22);"
-    "}"
-    ".toast-box {"
-    "  background-color: rgba(20, 20, 23, 0.96);"
-    "  border: 1px solid #3f3f46;"
-    "  border-radius: 16px;"
-    "  padding: 8px 18px;"
-    "  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.7);"
-    "}"
-    ".toast-label {"
-    "  color: #f4f4f5;"
-    "  font-size: 11.5px;"
-    "  font-weight: 600;"
-    "  font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif;"
-    "}"
-    ".home-pill-box {"
-    "  padding: 3px 0 8px 0;"
-    "  background-color: #000000;"
-    "  border-bottom-left-radius: 34px;"
-    "  border-bottom-right-radius: 34px;"
-    "}"
-    ".home-pill {"
-    "  min-height: 4px;"
-    "  min-width: 120px;"
-    "  background-color: #3f3f46;"
-    "  border-radius: 2px;"
-    "  transition: background-color 120ms ease;"
-    "}"
-    ".home-pill:hover {"
-    "  background-color: #71717a;"
-    "}"
-    ".popup-modal-layer {"
-    "  background-color: #000000;"
-    "  border-radius: 24px;"
-    "}"
-    ".popup-modal-bar {"
-    "  padding: 8px 14px;"
-    "  background-color: #121215;"
-    "  border-bottom: 1px solid #27272a;"
-    "}"
-    ".popup-modal-title {"
-    "  color: #f4f4f5;"
-    "  font-size: 12px;"
-    "  font-weight: 600;"
-    "  font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif;"
-    "}"
-    ".popup-close-btn {"
-    "  background: transparent;"
-    "  border: none;"
-    "  padding: 4px 8px;"
-    "  border-radius: 6px;"
-    "}"
-    ".popup-close-btn:hover {"
-    "  background-color: rgba(239, 68, 68, 0.18);"
-    "}";
+    /* ---- shell ---- */
+    ".phone-root { background-color: #000000; border: 1px solid #2a2a2a; border-radius: 22px; padding: 0; }"
+    ".status-bar { padding: 7px 12px; background-color: #000000; border-bottom: 1px solid #1a1a1a; border-radius: 21px 21px 0 0; }"
+    /* ---- status balls: colour only, meaning is in the tooltip ---- */
+    ".nav-pill { background: transparent; border: none; border-radius: 999px; padding: 6px 5px; }"
+    ".nav-pill-dot { min-width: 9px; min-height: 9px; border-radius: 999px; background-color: #737373; }"
+    ".nav-pill.pill-mirror .nav-pill-dot, .nav-pill.pill-solid .nav-pill-dot { background-color: #737373; }"
+    ".nav-pill.pill-excl .nav-pill-dot { background-color: #fde68a; }"
+    ".nav-pill.pill-ghost .nav-pill-dot { background-color: #a855f7; }"
+    ".nav-pill.pill-grab-alert .nav-pill-dot { background-color: #ef4444; }"
+    /* ---- window controls ---- */
+    ".move-capsule { padding: 4px 8px; border-radius: 6px; background: transparent; }"
+    ".move-capsule:hover { background-color: #161616; }"
+    ".top-ctrl-btn { background: transparent; background-image: none; box-shadow: none; border: none; padding: 3px; min-width: 20px; min-height: 20px; border-radius: 6px; }"
+    ".top-ctrl-btn:hover { background-color: #1f1f1f; }"
+    ".top-close-btn:hover { background-color: #ef4444; }"
+    ".resize-grip { opacity: 0.4; padding: 2px; }"
+    ".resize-grip:hover { opacity: 1.0; }"
+    /* ---- browser header ---- */
+    ".header-box { padding: 6px 10px 8px; background-color: #000000; border-bottom: 1px solid #1a1a1a; }"
+    ".url-bar-container { background-color: #121212; border: 1px solid #262626; border-radius: 8px; padding: 1px 4px 1px 10px; }"
+    ".url-bar-container:focus-within { border-color: #ffffff; }"
+    ".url-leading-icon { opacity: 0.5; }"
+    ".url-entry { background-color: transparent; color: #ffffff; border: none; box-shadow: none; padding: 5px 6px; font-size: 12px; caret-color: #ffffff; }"
+    ".url-entry:focus { background-color: transparent; border: none; box-shadow: none; }"
+    ".url-action-btn { background: transparent; background-image: none; box-shadow: none; border: none; padding: 4px 6px; border-radius: 6px; }"
+    ".url-action-btn:hover { background-color: #222222; }"
+    ".load-progress, .load-progress trough { min-height: 2px; padding: 0; margin: 0; background: transparent; border: none; }"
+    ".load-progress progress { min-height: 2px; border: none; border-radius: 0; background-color: #ffffff; }"
+    /* ---- home ---- */
+    ".home-page { background-color: #000000; }"
+    ".home-search-bar { background-color: #121212; border: 1px solid #262626; border-radius: 8px; padding: 9px 12px; }"
+    ".home-search-bar:hover { border-color: #525252; }"
+    ".home-search-label { font-size: 12px; color: #737373; }"
+    ".home-section-title { font-size: 9px; font-weight: 600; color: #666666; letter-spacing: 1px; }"
+    ".app-button { background: transparent; background-image: none; box-shadow: none; border: none; padding: 8px 6px; margin: 0; border-radius: 10px; }"
+    ".app-button:hover { background-color: #161616; }"
+    ".app-button:active { background-color: #222222; }"
+    ".app-label { font-size: 11px; font-weight: 400; color: #e5e5e5; margin-top: 5px; }"
+    /* ---- bottom bar ---- */
+    ".test-input-box { padding: 4px 10px; background-color: #000000; border-top: 1px solid #1a1a1a; }"
+    ".test-input-entry { background-color: #121212; color: #ffffff; border: 1px solid #262626; border-radius: 8px; padding: 5px 10px; font-size: 11px; caret-color: #ffffff; box-shadow: none; }"
+    ".test-input-entry:focus { border-color: #ffffff; }"
+    ".bottom-nav { background-color: #000000; padding: 5px 10px 7px; border-top: 1px solid #1a1a1a; border-radius: 0 0 21px 21px; }"
+    ".nav-button { background: transparent; background-image: none; box-shadow: none; border: none; padding: 5px 4px; min-height: 34px; min-width: 0; border-radius: 8px; }"
+    ".nav-button label { font-size: 9px; color: #737373; }"
+    ".nav-button:hover { background-color: #161616; }"
+    ".nav-button:hover label { color: #d4d4d4; }"
+    ".nav-button:active { background-color: #222222; }"
+    ".nav-button:disabled { opacity: 0.3; }"
+    ".nav-button.nav-selected { background-color: #1c1c1c; }"
+    ".nav-button.nav-selected label { color: #ffffff; font-weight: 600; }"
+    ".nav-refresh-btn { background: transparent; }"
+    /* ---- toast / popup ---- */
+    ".toast-box { background-color: #ffffff; border: none; border-radius: 8px; padding: 7px 16px; }"
+    ".toast-label { color: #000000; font-size: 11.5px; font-weight: 600; }"
+    ".popup-modal-layer { background-color: #000000; border-radius: 18px; }"
+    ".popup-modal-bar { padding: 7px 12px; background-color: #0a0a0a; border-bottom: 1px solid #1a1a1a; }"
+    ".popup-modal-title { color: #ffffff; font-size: 12px; font-weight: 600; }"
+    ".popup-close-btn { background: transparent; border: none; padding: 4px 8px; border-radius: 6px; }"
+    ".popup-close-btn:hover { background-color: #ef4444; }"
+    /* ---- ghost writer ---- */
+    ".ghost-page { background-color: #000000; color: #e5e5e5; }"
+    ".ghost-page label { color: #a0a0a0; font-size: 11px; }"
+    ".ghost-page .ghost-title { color: #ffffff; font-size: 20px; font-weight: 600; }"
+    ".ghost-page .section-label { color: #737373; font-size: 9px; font-weight: 600; letter-spacing: 1px; }"
+    ".ghost-page .editor-frame { background-color: #0c0c0c; border: 1px solid #222222; border-radius: 8px; }"
+    ".ghost-page scrolledwindow { border-radius: 8px; }"
+    ".ghost-page textview, .ghost-page textview text { background-color: transparent; color: #ffffff; font-size: 12px; caret-color: #ffffff; }"
+    ".ghost-page textview text selection { background-color: #ffffff; color: #000000; }"
+    ".ghost-page .eta { color: #a0a0a0; font-size: 10px; border: 1px solid #333333; border-radius: 6px; padding: 1px 7px; background: none; }"
+    ".ghost-page .dim-label { color: #737373; font-size: 10px; }"
+    ".ghost-page scrolledwindow, .ghost-page viewport { background-color: transparent; }"
+    ".ghost-page .mode-btn { background-color: #121212; background-image: none; box-shadow: none; color: #a0a0a0; border: 1px solid #262626; border-radius: 8px; padding: 7px 4px; }"
+    ".ghost-page .mode-btn label { color: #a0a0a0; font-size: 11px; }"
+    ".ghost-page .mode-btn:hover { background-color: #1a1a1a; }"
+    ".ghost-page .mode-btn:checked { background-color: #262626; border-color: #525252; }"
+    ".ghost-page .mode-btn:checked label { color: #ffffff; font-weight: 600; }"
+    ".ghost-page switch { background-color: #262626; background-image: none; border: none; border-radius: 999px; box-shadow: none; min-width: 38px; min-height: 20px; }"
+    ".ghost-page switch:checked { background-color: #22c55e; }"
+    ".ghost-page switch slider { background-color: #ffffff; background-image: none; border: none; border-radius: 999px; min-width: 16px; min-height: 16px; margin: 2px; box-shadow: none; }"
+    ".ghost-page .editor-hint { color: #666666; font-family: monospace; font-size: 12px; }"
+    ".ghost-page button { background-color: #121212; background-image: none; box-shadow: none; text-shadow: none; color: #e5e5e5; border: 1px solid #262626; border-radius: 8px; padding: 6px 10px; }"
+    ".ghost-page button:hover { background-color: #1c1c1c; border-color: #404040; }"
+    ".ghost-page button:active { background-color: #262626; }"
+    ".ghost-page .quiet-button { background: transparent; border-color: transparent; padding: 3px 6px; }"
+    ".ghost-page .quiet-button label { color: #a0a0a0; font-size: 10px; }"
+    ".ghost-page .start-typing, .ghost-page button.suggested-action { background-color: #ffffff; background-image: none; border: 1px solid #ffffff; border-radius: 8px; padding: 10px; box-shadow: none; }"
+    ".ghost-page .start-typing:hover, .ghost-page button.suggested-action:hover { background-color: #d4d4d4; border-color: #d4d4d4; }"
+    ".ghost-page .start-typing label, .ghost-page button.suggested-action label { color: #000000; font-size: 12px; font-weight: 600; }"
+    ".ghost-page spinbutton { background-color: #121212; color: #e5e5e5; border: 1px solid #262626; border-radius: 6px; box-shadow: none; font-size: 11px; min-height: 30px; }"
+    ".ghost-page spinbutton button { background: transparent; border: none; padding: 1px; min-width: 11px; }"
+    ".ghost-page spinbutton entry { color: #e5e5e5; min-width: 28px; padding: 2px; }"
+    ".ghost-page check { background-color: #121212; border: 1px solid #525252; border-radius: 4px; box-shadow: none; }"
+    ".ghost-page check:checked { background-color: #ffffff; background-image: none; color: #000000; border-color: #ffffff; }"
+    ".ghost-page expander { padding: 8px 0; }"
+    ".ghost-page expander arrow { color: #a0a0a0; }"
+    ".ghost-page scrollbar trough { background: transparent; }"
+    ".ghost-page scrollbar slider { background-color: #333333; min-width: 4px; border: none; border-radius: 4px; }"
+    ".ghost-page scrollbar slider:hover { background-color: #525252; }";
 
 static void update_x11_state_properties(void) {
     if (s_xid == None) return;
@@ -590,9 +399,11 @@ void overlay_update_status_ui(void) {
         if (mode == KEY_MODE_EXCLUSIVE) {
             gtk_label_set_text(GTK_LABEL(s_mode_pill), "Exclusive");
             gtk_style_context_add_class(sc, "pill-excl");
+            gtk_widget_set_tooltip_text(gtk_widget_get_parent(s_mode_pill_box), "Exclusive (click for Mirror)");
         } else {
             gtk_label_set_text(GTK_LABEL(s_mode_pill), "Mirror");
             gtk_style_context_add_class(sc, "pill-mirror");
+            gtk_widget_set_tooltip_text(gtk_widget_get_parent(s_mode_pill_box), "Mirror (click for Exclusive)");
         }
     }
 
@@ -606,9 +417,11 @@ void overlay_update_status_ui(void) {
         if (ghost == GHOST_MODE_ON) {
             gtk_label_set_text(GTK_LABEL(s_ghost_pill_label), "Ghost");
             gtk_style_context_add_class(sc, "pill-ghost");
+            gtk_widget_set_tooltip_text(gtk_widget_get_parent(s_ghost_pill_box), "Ghost (click for Solid)");
         } else {
             gtk_label_set_text(GTK_LABEL(s_ghost_pill_label), "Solid");
             gtk_style_context_add_class(sc, "pill-solid");
+            gtk_widget_set_tooltip_text(gtk_widget_get_parent(s_ghost_pill_box), "Solid (click for Ghost)");
         }
     }
 
@@ -622,6 +435,14 @@ void overlay_update_status_ui(void) {
         }
     }
 
+    if (s_btn_home && s_btn_ghost) {
+        GtkStyleContext *home = gtk_widget_get_style_context(s_btn_home);
+        GtkStyleContext *ghost = gtk_widget_get_style_context(s_btn_ghost);
+        gtk_style_context_remove_class(home, "nav-selected");
+        gtk_style_context_remove_class(ghost, "nav-selected");
+        if (strcmp(s_current_app, "home") == 0) gtk_style_context_add_class(home, "nav-selected");
+        if (strcmp(s_current_app, "ghost") == 0) gtk_style_context_add_class(ghost, "nav-selected");
+    }
     /* Update Back button sensitivity */
     if (s_btn_back) {
         if (strcmp(s_current_app, "home") == 0) {
@@ -901,48 +722,6 @@ static void on_window_size_allocate(GtkWidget *widget, GdkRectangle *allocation,
 
 
 
-static gboolean on_resize_grip_press(GtkWidget *widget, GdkEventButton *event, gpointer user_data) {
-    (void)widget;
-    (void)user_data;
-    if (event->button == 1) {
-        s_active_drag = RESIZE_RIGHT | RESIZE_BOTTOM;
-        s_drag_start_root_x = (int)event->x_root;
-        s_drag_start_root_y = (int)event->y_root;
-        s_drag_start_win_x = s_pos_x;
-        s_drag_start_win_y = s_pos_y;
-        s_drag_start_win_w = s_win_width;
-        s_drag_start_win_h = s_win_height;
-        set_window_cursor(GDK_BOTTOM_RIGHT_CORNER);
-        return TRUE;
-    }
-    return FALSE;
-}
-
-static gboolean on_resize_grip_motion(GtkWidget *widget, GdkEventMotion *event, gpointer user_data) {
-    (void)widget;
-    (void)user_data;
-    if (s_active_drag & (RESIZE_RIGHT | RESIZE_BOTTOM)) {
-        int dx = (int)event->x_root - s_drag_start_root_x;
-        int dy = (int)event->y_root - s_drag_start_root_y;
-        int new_w = s_drag_start_win_w + dx;
-        int new_h = s_drag_start_win_h + dy;
-        overlay_set_size(new_w, new_h);
-        return TRUE;
-    }
-    set_window_cursor(GDK_BOTTOM_RIGHT_CORNER);
-    return FALSE;
-}
-
-static gboolean on_resize_grip_release(GtkWidget *widget, GdkEventButton *event, gpointer user_data) {
-    (void)widget;
-    (void)user_data;
-    if (event->button == 1 && (s_active_drag != RESIZE_NONE)) {
-        s_active_drag = RESIZE_NONE;
-        set_window_cursor((GdkCursorType)-1);
-        return TRUE;
-    }
-    return FALSE;
-}
 
 static gboolean on_header_button_press(GtkWidget *widget, GdkEventButton *event, gpointer user_data) {
     (void)widget;
@@ -1166,9 +945,16 @@ static void on_url_entry_activate(GtkEntry *entry, gpointer user_data) {
     }
 }
 
-static void on_test_entry_changed(GtkEditable *editable, gpointer user_data) {
-    (void)editable;
+static void on_test_entry_changed(GtkTextBuffer *editable, gpointer user_data) {
     (void)user_data;
+    int count = gtk_text_buffer_get_char_count(editable);
+    if (s_ghost_count) {
+        char text[96];
+        int lines = gtk_text_buffer_get_line_count(editable);
+        g_snprintf(text, sizeof(text), "%d chars · %d line%s", count, lines, lines == 1 ? "" : "s");
+        gtk_label_set_text(GTK_LABEL(s_ghost_count), text);
+    }
+    if (s_ghost_placeholder) gtk_widget_set_visible(s_ghost_placeholder, count == 0);
     update_x11_state_properties();
 }
 
@@ -1222,6 +1008,10 @@ void overlay_switch_app(const char *app_name) {
         browser_set_active_view("browser");
         overlay_set_compact_mode(FALSE);
         xutil_log("WINDOW", "Switched view to Browser app.");
+    } else if (g_ascii_strcasecmp(app_name, "ghost") == 0) {
+        gtk_stack_set_visible_child_name(GTK_STACK(s_stack), "ghost");
+        g_strlcpy(s_current_app, "ghost", sizeof(s_current_app));
+        overlay_set_compact_mode(FALSE);
     } else {
         gtk_stack_set_visible_child_name(GTK_STACK(s_stack), "home");
         g_strlcpy(s_current_app, "home", sizeof(s_current_app));
@@ -1283,11 +1073,10 @@ void overlay_universal_reset(void) {
 
     /* 2. Clear and hide test/ghost input entry and URL bar */
     if (s_test_entry) {
-        gtk_entry_set_text(GTK_ENTRY(s_test_entry), "");
+        gtk_text_buffer_set_text(gtk_text_view_get_buffer(GTK_TEXT_VIEW(s_test_entry)), "", -1);
     }
-    if (s_ghost_input_box) {
-        gtk_widget_hide(s_ghost_input_box);
-    }
+    if (s_ghost_countdown) { g_source_remove(s_ghost_countdown); s_ghost_countdown = 0; }
+    ghost_writer_cancel();
     if (s_url_entry) {
         gtk_entry_set_text(GTK_ENTRY(s_url_entry), "");
     }
@@ -1343,34 +1132,223 @@ static void on_btn_snap_clicked(GtkButton *btn, gpointer user_data) {
 }
 
 void overlay_toggle_ghost_input(void) {
-    if (!s_ghost_input_box || !s_test_entry) return;
-
-    gboolean is_visible = gtk_widget_get_visible(s_ghost_input_box);
-    const char *text = gtk_entry_get_text(GTK_ENTRY(s_test_entry));
-
-    if (!is_visible) {
-        /* 1st tap: reveal and grab focus */
-        gtk_widget_show(s_ghost_input_box);
+    overlay_switch_app("ghost");
+    if (!ghost_is_typing() && !s_ghost_countdown) {
         gtk_widget_grab_focus(s_test_entry);
         input_set_typing_target(TYPING_TARGET_OVERLAY);
-        overlay_show_toast("Ghost Input: Ready");
-    } else {
-        /* Already open */
-        if (!text || strlen(text) == 0) {
-            /* Input is empty -> hide it back */
-            gtk_widget_hide(s_ghost_input_box);
-            input_set_typing_target(TYPING_TARGET_NONE);
-            overlay_show_toast("Ghost Input: Closed");
-        } else {
-            /* Has text -> run ghost typer */
-            ghost_writer_run();
-        }
     }
 }
 
 static void on_btn_ghost_clicked(GtkButton *btn, gpointer user_data) {
     (void)btn; (void)user_data;
     overlay_toggle_ghost_input();
+}
+
+void overlay_ghost_progress(size_t typed, size_t total) {
+    if (!s_ghost_status) return;
+    char text[96];
+    g_snprintf(text, sizeof(text), "Typing %zu / %zu", typed, total);
+    gtk_label_set_text(GTK_LABEL(s_ghost_status), text);
+}
+
+static void ghost_settings_save(void) {
+    GhostTiming t = ghost_get_timing();
+    t.human = gtk_switch_get_active(GTK_SWITCH(s_ghost_human));
+    t.safe = gtk_switch_get_active(GTK_SWITCH(s_ghost_safe));
+    for (int i = 0; i < 3; i++)
+        if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(s_ghost_modes[i]))) t.speed = i;
+    ghost_set_timing(t);
+}
+
+static void on_ghost_mode_toggled(GtkToggleButton *button, gpointer data) {
+    (void)data;
+    if (gtk_toggle_button_get_active(button)) ghost_settings_save();
+}
+
+static void on_ghost_safe_toggled(GObject *sw, GParamSpec *pspec, gpointer data) {
+    (void)sw; (void)pspec; (void)data;
+    ghost_settings_save();
+}
+
+static void on_ghost_human_toggled(GObject *sw, GParamSpec *pspec, gpointer data) {
+    (void)sw; (void)pspec; (void)data;
+    gtk_widget_set_visible(s_ghost_mode_row, gtk_switch_get_active(GTK_SWITCH(s_ghost_human)));
+    ghost_settings_save();
+}
+
+static gboolean ghost_eta_tick(gpointer data) {
+    (void)data;
+    int ms = ghost_eta_remaining_ms();
+    if (ms < 0) {
+        gtk_widget_hide(s_ghost_eta);
+        return G_SOURCE_CONTINUE;   /* countdown still running; stopped by button state */
+    }
+    int sec = (ms + 999) / 1000;
+    char text[32];
+    if (sec < 60) g_snprintf(text, sizeof(text), "est: %ds", MAX(sec, 1));
+    else if (sec < 3600) g_snprintf(text, sizeof(text), "est: %dm %02ds", sec / 60, sec % 60);
+    else g_snprintf(text, sizeof(text), "est: %dh %02dm", sec / 3600, (sec % 3600) / 60);
+    gtk_label_set_text(GTK_LABEL(s_ghost_eta), text);
+    gtk_widget_show(s_ghost_eta);
+    return G_SOURCE_CONTINUE;
+}
+
+static gboolean ghost_countdown_tick(gpointer data) {
+    (void)data;
+    if (--s_ghost_seconds > 0) {
+        char text[96];
+        g_snprintf(text, sizeof(text), "Starting in %d… click the target", s_ghost_seconds);
+        gtk_label_set_text(GTK_LABEL(s_ghost_status), text);
+        return G_SOURCE_CONTINUE;
+    }
+    s_ghost_countdown = 0;
+    ghost_writer_run();
+    return G_SOURCE_REMOVE;
+}
+
+static void on_ghost_start(GtkButton *button, gpointer data) {
+    (void)button; (void)data;
+    if (s_ghost_countdown) {
+        g_source_remove(s_ghost_countdown); s_ghost_countdown = 0;
+        overlay_set_ghost_button_state(GHOST_BTN_IDLE); return;
+    }
+    if (ghost_is_typing()) { ghost_writer_cancel(); return; }
+    if (!*overlay_get_test_entry_text()) { overlay_show_toast("Nothing to type"); return; }
+    ghost_settings_save();
+    input_release_grab(); input_set_typing_target(TYPING_TARGET_NONE);
+    hotkey_remove_clipboard_shield();
+    overlay_set_ghost_button_state(GHOST_BTN_TYPING);
+    gtk_button_set_label(GTK_BUTTON(s_ghost_start), "Cancel");
+    gtk_label_set_text(GTK_LABEL(s_ghost_status), "Starting in 3… click the target");
+    s_ghost_seconds = 3;
+    s_ghost_countdown = g_timeout_add(1000, ghost_countdown_tick, NULL);
+}
+
+static GtkWidget *ghost_label(const char *text) {
+    GtkWidget *label = gtk_label_new(text);
+    gtk_label_set_xalign(GTK_LABEL(label), 0);
+    gtk_label_set_line_wrap(GTK_LABEL(label), TRUE);
+    return label;
+}
+
+static GtkWidget *create_ghost_page(void) {
+    GtkWidget *page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
+    gtk_container_set_border_width(GTK_CONTAINER(page), 14);
+    gtk_style_context_add_class(gtk_widget_get_style_context(page), "ghost-page");
+
+    /* Everything but status + Start scrolls, so no control is ever out of reach. */
+    GtkWidget *content = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
+    GtkWidget *page_scroll = gtk_scrolled_window_new(NULL, NULL);
+    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(page_scroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+    gtk_scrolled_window_set_min_content_height(GTK_SCROLLED_WINDOW(page_scroll), 80);
+    gtk_container_add(GTK_CONTAINER(page_scroll), content);
+    gtk_box_pack_start(GTK_BOX(page), page_scroll, TRUE, TRUE, 0);
+
+    GtkWidget *title = ghost_label("Ghost Typer");
+    gtk_style_context_add_class(gtk_widget_get_style_context(title), "ghost-title");
+    gtk_box_pack_start(GTK_BOX(content), title, FALSE, FALSE, 0);
+
+    /* Editor grows with its text between a small minimum and a cap. */
+    GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
+    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+    gtk_scrolled_window_set_min_content_height(GTK_SCROLLED_WINDOW(scroll), 72);
+    gtk_scrolled_window_set_max_content_height(GTK_SCROLLED_WINDOW(scroll), 180);
+    gtk_scrolled_window_set_propagate_natural_height(GTK_SCROLLED_WINDOW(scroll), TRUE);
+    s_test_entry = gtk_text_view_new();
+    gtk_text_view_set_monospace(GTK_TEXT_VIEW(s_test_entry), TRUE);
+    gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(s_test_entry), GTK_WRAP_WORD_CHAR);
+    gtk_text_view_set_left_margin(GTK_TEXT_VIEW(s_test_entry), 12);
+    gtk_text_view_set_right_margin(GTK_TEXT_VIEW(s_test_entry), 12);
+    gtk_text_view_set_top_margin(GTK_TEXT_VIEW(s_test_entry), 10);
+    gtk_text_view_set_bottom_margin(GTK_TEXT_VIEW(s_test_entry), 10);
+    g_signal_connect(s_test_entry, "button-press-event", G_CALLBACK(on_widget_button_press), NULL);
+    g_signal_connect(gtk_text_view_get_buffer(GTK_TEXT_VIEW(s_test_entry)), "changed", G_CALLBACK(on_test_entry_changed), NULL);
+    gtk_container_add(GTK_CONTAINER(scroll), s_test_entry);
+    GtkWidget *editor = gtk_overlay_new();
+    gtk_container_add(GTK_CONTAINER(editor), scroll);
+    GtkWidget *frame = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+    gtk_style_context_add_class(gtk_widget_get_style_context(frame), "editor-frame");
+    gtk_box_pack_start(GTK_BOX(frame), editor, TRUE, TRUE, 0);
+    s_ghost_placeholder = ghost_label("Type here");
+    gtk_style_context_add_class(gtk_widget_get_style_context(s_ghost_placeholder), "editor-hint");
+    gtk_widget_set_halign(s_ghost_placeholder, GTK_ALIGN_START);
+    gtk_widget_set_valign(s_ghost_placeholder, GTK_ALIGN_START);
+    gtk_widget_set_margin_start(s_ghost_placeholder, 13);
+    gtk_widget_set_margin_top(s_ghost_placeholder, 11);
+    gtk_overlay_add_overlay(GTK_OVERLAY(editor), s_ghost_placeholder);
+    gtk_overlay_set_overlay_pass_through(GTK_OVERLAY(editor), s_ghost_placeholder, TRUE);
+    gtk_widget_set_no_show_all(s_ghost_placeholder, TRUE);
+    gtk_widget_show(s_ghost_placeholder);
+    gtk_box_pack_start(GTK_BOX(content), frame, FALSE, FALSE, 0);
+    s_ghost_count = ghost_label("0 chars · 1 line");
+    gtk_style_context_add_class(gtk_widget_get_style_context(s_ghost_count), "dim-label");
+    gtk_box_pack_start(GTK_BOX(content), s_ghost_count, FALSE, FALSE, 0);
+
+    s_ghost_controls = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
+    GhostTiming saved = ghost_get_timing();
+
+    GtkWidget *human_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
+    gtk_box_pack_start(GTK_BOX(human_row), ghost_label("Human-like"), TRUE, TRUE, 0);
+    s_ghost_human = gtk_switch_new();
+    gtk_widget_set_can_focus(s_ghost_human, FALSE);
+    gtk_widget_set_valign(s_ghost_human, GTK_ALIGN_CENTER);
+    gtk_switch_set_active(GTK_SWITCH(s_ghost_human), saved.human);
+    gtk_box_pack_start(GTK_BOX(human_row), s_ghost_human, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(s_ghost_controls), human_row, FALSE, FALSE, 0);
+
+    /* Everything that only applies to human typing hides with the switch. */
+    s_ghost_mode_row = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
+    GtkWidget *safe_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
+    gtk_box_pack_start(GTK_BOX(safe_row), ghost_label("Extra safe"), TRUE, TRUE, 0);
+    s_ghost_safe = gtk_switch_new();
+    gtk_widget_set_can_focus(s_ghost_safe, FALSE);
+    gtk_widget_set_valign(s_ghost_safe, GTK_ALIGN_CENTER);
+    gtk_switch_set_active(GTK_SWITCH(s_ghost_safe), saved.safe);
+    gtk_box_pack_start(GTK_BOX(safe_row), s_ghost_safe, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(s_ghost_mode_row), safe_row, FALSE, FALSE, 0);
+    GtkWidget *modes = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+    gtk_box_set_homogeneous(GTK_BOX(modes), TRUE);
+    const char *names[] = {"Slow", "Moderate", "Fast"};
+    for (int i = 0; i < 3; i++) {
+        s_ghost_modes[i] = i ? gtk_radio_button_new_with_label_from_widget(GTK_RADIO_BUTTON(s_ghost_modes[0]), names[i])
+                             : gtk_radio_button_new_with_label(NULL, names[i]);
+        gtk_toggle_button_set_mode(GTK_TOGGLE_BUTTON(s_ghost_modes[i]), FALSE);
+        gtk_widget_set_can_focus(s_ghost_modes[i], FALSE);
+        gtk_style_context_add_class(gtk_widget_get_style_context(s_ghost_modes[i]), "mode-btn");
+        gtk_box_pack_start(GTK_BOX(modes), s_ghost_modes[i], TRUE, TRUE, 0);
+    }
+    gtk_box_pack_start(GTK_BOX(s_ghost_mode_row), modes, FALSE, FALSE, 0);
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(s_ghost_modes[saved.speed]), TRUE);
+    for (int i = 0; i < 3; i++) {
+        g_signal_connect(s_ghost_modes[i], "button-press-event", G_CALLBACK(on_widget_button_press), NULL);
+        g_signal_connect(s_ghost_modes[i], "toggled", G_CALLBACK(on_ghost_mode_toggled), NULL);
+    }
+    g_signal_connect(s_ghost_safe, "notify::active", G_CALLBACK(on_ghost_safe_toggled), NULL);
+    g_signal_connect(s_ghost_safe, "button-press-event", G_CALLBACK(on_widget_button_press), NULL);
+    gtk_widget_show_all(s_ghost_mode_row);
+    gtk_widget_set_no_show_all(s_ghost_mode_row, TRUE);
+    gtk_widget_set_visible(s_ghost_mode_row, saved.human);
+    gtk_box_pack_start(GTK_BOX(s_ghost_controls), s_ghost_mode_row, FALSE, FALSE, 0);
+    g_signal_connect(s_ghost_human, "notify::active", G_CALLBACK(on_ghost_human_toggled), NULL);
+    g_signal_connect(s_ghost_human, "button-press-event", G_CALLBACK(on_widget_button_press), NULL);
+    gtk_box_pack_start(GTK_BOX(content), s_ghost_controls, FALSE, FALSE, 0);
+
+    GtkWidget *status_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+    s_ghost_status = ghost_label("Ready");
+    gtk_style_context_add_class(gtk_widget_get_style_context(s_ghost_status), "dim-label");
+    gtk_box_pack_start(GTK_BOX(status_row), s_ghost_status, TRUE, TRUE, 0);
+    s_ghost_eta = gtk_label_new("");
+    gtk_style_context_add_class(gtk_widget_get_style_context(s_ghost_eta), "eta");
+    gtk_widget_set_no_show_all(s_ghost_eta, TRUE);
+    gtk_box_pack_end(GTK_BOX(status_row), s_ghost_eta, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(page), status_row, FALSE, FALSE, 0);
+    s_ghost_start = gtk_button_new_with_label("Start");
+    gtk_style_context_add_class(gtk_widget_get_style_context(s_ghost_start), "start-typing");
+    gtk_widget_set_can_focus(s_ghost_start, FALSE);
+    g_signal_connect(s_ghost_start, "button-press-event", G_CALLBACK(on_widget_button_press), NULL);
+    g_signal_connect(s_ghost_start, "clicked", G_CALLBACK(on_ghost_start), NULL);
+    gtk_box_pack_start(GTK_BOX(page), s_ghost_start, FALSE, FALSE, 0);
+    return page;
 }
 
 static gboolean on_ghost_revert_btn_label(gpointer user_data) {
@@ -1383,6 +1361,21 @@ static gboolean on_ghost_revert_btn_label(gpointer user_data) {
 }
 
 void overlay_set_ghost_button_state(GhostButtonState state) {
+    gboolean typing = state == GHOST_BTN_TYPING;
+    if (s_ghost_start) gtk_button_set_label(GTK_BUTTON(s_ghost_start), typing ? "Stop" : "Start");
+    if (s_ghost_controls) gtk_widget_set_sensitive(s_ghost_controls, !typing);
+    if (s_ghost_eta) {
+        if (typing && !s_ghost_eta_timer) s_ghost_eta_timer = g_timeout_add(500, ghost_eta_tick, NULL);
+        if (!typing) {
+            if (s_ghost_eta_timer) { g_source_remove(s_ghost_eta_timer); s_ghost_eta_timer = 0; }
+            gtk_widget_hide(s_ghost_eta);
+        }
+    }
+    if (s_test_entry) gtk_text_view_set_editable(GTK_TEXT_VIEW(s_test_entry), !typing);
+    if (s_ghost_status) gtk_label_set_text(GTK_LABEL(s_ghost_status),
+        typing ? "Typing…" :
+        state == GHOST_BTN_DONE ? "Done" :
+        state == GHOST_BTN_FAILED ? "Stopped" : "Ready");
     if (!s_btn_ghost_stack) return;
 
     if (s_ghost_revert_timer > 0) {
@@ -1421,6 +1414,7 @@ void overlay_show_toast(const char *msg) {
     if (!s_toast_box || !s_toast_label || !msg) return;
 
     gtk_label_set_text(GTK_LABEL(s_toast_label), msg);
+    gtk_widget_show(s_toast_label);
     gtk_widget_show(s_toast_box);
 
     if (s_toast_timer_id > 0) {
@@ -1433,7 +1427,7 @@ static GtkWidget *create_nav_pill(GtkWidget **out_box, GtkWidget **out_dot, GtkW
     GtkWidget *eb = gtk_event_box_new();
     gtk_event_box_set_visible_window(GTK_EVENT_BOX(eb), FALSE);
 
-    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
+    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
     gtk_style_context_add_class(gtk_widget_get_style_context(box), "nav-pill");
 
     GtkWidget *dot = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
@@ -1442,6 +1436,7 @@ static GtkWidget *create_nav_pill(GtkWidget **out_box, GtkWidget **out_dot, GtkW
 
     GtkWidget *lbl = gtk_label_new(initial_text);
     gtk_style_context_add_class(gtk_widget_get_style_context(lbl), "nav-pill-text");
+    gtk_widget_set_no_show_all(lbl, TRUE);   /* text kept for state/tooltip; only the ball is shown */
     gtk_box_pack_start(GTK_BOX(box), lbl, FALSE, FALSE, 0);
 
     gtk_container_add(GTK_CONTAINER(eb), box);
@@ -1491,7 +1486,8 @@ static void on_app_icon_clicked(GtkButton *btn, gpointer user_data) {
         overlay_universal_reset();
         return;
     }
-    overlay_switch_app(app);
+    if (strcmp(app, "ghost") == 0) overlay_toggle_ghost_input();
+    else overlay_switch_app(app);
 }
 
 static void on_home_search_clicked(GtkWidget *widget, GdkEventButton *event, gpointer user_data) {
@@ -1513,6 +1509,8 @@ static GtkWidget *create_app_icon_widget(const char *label_text, const char *app
     GtkWidget *img = NULL;
     if (strcmp(app_id, "chatgpt") == 0) {
         img = create_svg_image(s_svg_chatgpt_icon, 50, 50);
+    } else if (strcmp(app_id, "ghost") == 0) {
+        img = create_svg_image(s_svg_ghost_app, 50, 50);
     } else {
         img = create_svg_image(s_svg_browser_icon, 50, 50);
     }
@@ -1568,7 +1566,7 @@ static GtkWidget *create_home_page(void) {
     gtk_box_pack_start(GTK_BOX(box), sec_lbl, FALSE, FALSE, 0);
 
     /* App Icons Grid: ChatGPT and Chrome */
-    GtkWidget *apps_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 32);
+    GtkWidget *apps_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 14);
     gtk_widget_set_halign(apps_box, GTK_ALIGN_CENTER);
     gtk_widget_set_valign(apps_box, GTK_ALIGN_START);
 
@@ -1577,6 +1575,8 @@ static GtkWidget *create_home_page(void) {
 
     GtkWidget *btn_chrome = create_app_icon_widget("Chrome", "browser");
     gtk_box_pack_start(GTK_BOX(apps_box), btn_chrome, FALSE, FALSE, 0);
+    GtkWidget *btn_ghost_app = create_app_icon_widget("Ghost Typer", "ghost");
+    gtk_box_pack_start(GTK_BOX(apps_box), btn_ghost_app, FALSE, FALSE, 0);
 
     gtk_box_pack_start(GTK_BOX(box), apps_box, FALSE, FALSE, 0);
 
@@ -1701,20 +1701,19 @@ void overlay_execute_clipboard_action(ClipboardAction action) {
                 gtk_editable_cut_clipboard(GTK_EDITABLE(focused));
                 break;
         }
-    } else if (strcmp(s_current_app, "home") == 0 && s_test_entry) {
+    } else if ((focused && GTK_IS_TEXT_VIEW(focused)) ||
+               (strcmp(s_current_app, "ghost") == 0 && s_test_entry)) {
+        GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(
+            focused && GTK_IS_TEXT_VIEW(focused) ? focused : s_test_entry));
+        GtkClipboard *clipboard = gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
+        GtkTextIter begin, end;
         switch (action) {
             case CLIPBOARD_ACTION_SELECT_ALL:
-                gtk_editable_select_region(GTK_EDITABLE(s_test_entry), 0, -1);
-                break;
-            case CLIPBOARD_ACTION_COPY:
-                gtk_editable_copy_clipboard(GTK_EDITABLE(s_test_entry));
-                break;
-            case CLIPBOARD_ACTION_PASTE:
-                gtk_editable_paste_clipboard(GTK_EDITABLE(s_test_entry));
-                break;
-            case CLIPBOARD_ACTION_CUT:
-                gtk_editable_cut_clipboard(GTK_EDITABLE(s_test_entry));
-                break;
+                gtk_text_buffer_get_bounds(buffer, &begin, &end);
+                gtk_text_buffer_select_range(buffer, &begin, &end); break;
+            case CLIPBOARD_ACTION_COPY: gtk_text_buffer_copy_clipboard(buffer, clipboard); break;
+            case CLIPBOARD_ACTION_PASTE: gtk_text_buffer_paste_clipboard(buffer, clipboard, NULL, TRUE); break;
+            case CLIPBOARD_ACTION_CUT: gtk_text_buffer_cut_clipboard(buffer, clipboard, TRUE); break;
         }
     } else {
         if (action == CLIPBOARD_ACTION_PASTE) {
@@ -1733,6 +1732,13 @@ void overlay_execute_clipboard_action(ClipboardAction action) {
         }
     }
     update_x11_state_properties();
+}
+
+static void add_nav_content(GtkWidget *button, GtkWidget *icon, const char *text) {
+    GtkWidget *column = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
+    gtk_box_pack_start(GTK_BOX(column), icon, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(column), gtk_label_new(text), FALSE, FALSE, 0);
+    gtk_container_add(GTK_CONTAINER(button), column);
 }
 
 gboolean window_init(gboolean start_visible) {
@@ -1820,12 +1826,10 @@ gboolean window_init(gboolean start_visible) {
 
     GtkWidget *mode_pill_eb = create_nav_pill(&s_mode_pill_box, &s_mode_dot, &s_mode_pill, "Mirror");
     g_signal_connect(mode_pill_eb, "button-press-event", G_CALLBACK(on_mode_pill_clicked), NULL);
-    gtk_widget_set_tooltip_text(mode_pill_eb, "Mode: Mirror (click to toggle Exclusive)");
     gtk_box_pack_start(GTK_BOX(left_box), mode_pill_eb, FALSE, FALSE, 0);
 
     GtkWidget *ghost_pill_eb = create_nav_pill(&s_ghost_pill_box, &s_ghost_dot, &s_ghost_pill_label, "Solid");
     g_signal_connect(ghost_pill_eb, "button-press-event", G_CALLBACK(on_ghost_pill_clicked), NULL);
-    gtk_widget_set_tooltip_text(ghost_pill_eb, "Ghost Mode: Solid (click to toggle Ghost)");
     gtk_box_pack_start(GTK_BOX(left_box), ghost_pill_eb, FALSE, FALSE, 0);
 
     /* Grab Alert Pill (hidden unless grab fails) */
@@ -1833,6 +1837,7 @@ gboolean window_init(gboolean start_visible) {
     if (s_grab_box) {
         gtk_style_context_add_class(gtk_widget_get_style_context(s_grab_box), "pill-grab-alert");
     }
+    gtk_widget_set_tooltip_text(s_grab_pill, "Keyboard grab blocked");
     gtk_box_pack_start(GTK_BOX(left_box), s_grab_pill, FALSE, FALSE, 0);
     gtk_widget_set_no_show_all(s_grab_pill, TRUE);
     gtk_widget_hide(s_grab_pill);
@@ -1893,6 +1898,7 @@ gboolean window_init(gboolean start_visible) {
     gtk_box_pack_start(GTK_BOX(s_root_box), s_overlay, TRUE, TRUE, 0);
 
     s_stack = gtk_stack_new();
+    gtk_stack_set_homogeneous(GTK_STACK(s_stack), FALSE);
     gtk_stack_set_transition_type(GTK_STACK(s_stack), GTK_STACK_TRANSITION_TYPE_SLIDE_LEFT_RIGHT);
     gtk_stack_set_transition_duration(GTK_STACK(s_stack), 180);
     gtk_container_add(GTK_CONTAINER(s_overlay), s_stack);
@@ -1906,6 +1912,8 @@ gboolean window_init(gboolean start_visible) {
     gtk_widget_set_no_show_all(s_toast_box, TRUE);
 
     s_toast_label = gtk_label_new("");
+    gtk_label_set_line_wrap(GTK_LABEL(s_toast_label), TRUE);
+    gtk_label_set_max_width_chars(GTK_LABEL(s_toast_label), 34);
     gtk_style_context_add_class(gtk_widget_get_style_context(s_toast_label), "toast-label");
     gtk_box_pack_start(GTK_BOX(s_toast_box), s_toast_label, TRUE, TRUE, 0);
     gtk_overlay_add_overlay(GTK_OVERLAY(s_overlay), s_toast_box);
@@ -1992,23 +2000,11 @@ gboolean window_init(gboolean start_visible) {
     browser_set_divert_callback(on_browser_divert, NULL);
     browser_set_click_callback(on_browser_clicked, NULL);
 
-    /* --- On-Demand Ghost Input Box (Hidden by default) --- */
-    s_ghost_input_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
-    gtk_style_context_add_class(gtk_widget_get_style_context(s_ghost_input_box), "test-input-box");
-
-    s_test_entry = gtk_entry_new();
-    gtk_entry_set_placeholder_text(GTK_ENTRY(s_test_entry), "Type text, then tap Ghost Writer...");
-    gtk_style_context_add_class(gtk_widget_get_style_context(s_test_entry), "test-input-entry");
-    g_signal_connect(s_test_entry, "button-press-event", G_CALLBACK(on_widget_button_press), NULL);
-    g_signal_connect(s_test_entry, "changed", G_CALLBACK(on_test_entry_changed), NULL);
-    g_signal_connect_swapped(s_test_entry, "activate", G_CALLBACK(ghost_writer_run), NULL);
-    gtk_box_pack_start(GTK_BOX(s_ghost_input_box), s_test_entry, FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(s_root_box), s_ghost_input_box, FALSE, FALSE, 0);
-    gtk_widget_set_no_show_all(s_ghost_input_box, TRUE);
-    gtk_widget_hide(s_ghost_input_box);
+    gtk_stack_add_named(GTK_STACK(s_stack), create_ghost_page(), "ghost");
 
     /* --- Bottom Navigation Bar --- */
-    GtkWidget *bottom_nav = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
+    GtkWidget *bottom_nav = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 3);
+    gtk_box_set_homogeneous(GTK_BOX(bottom_nav), TRUE);
     gtk_style_context_add_class(gtk_widget_get_style_context(bottom_nav), "bottom-nav");
     gtk_box_pack_start(GTK_BOX(s_root_box), bottom_nav, FALSE, FALSE, 0);
 
@@ -2017,7 +2013,7 @@ gboolean window_init(gboolean start_visible) {
     gtk_style_context_add_class(gtk_widget_get_style_context(s_btn_back), "nav-button");
     gtk_widget_set_sensitive(s_btn_back, FALSE);
     GtkWidget *img_back = create_svg_image(s_svg_back_icon, 20, 20);
-    gtk_container_add(GTK_CONTAINER(s_btn_back), img_back);
+    add_nav_content(s_btn_back, img_back, "Back");
     g_signal_connect(s_btn_back, "clicked", G_CALLBACK(on_btn_back_clicked), NULL);
     g_signal_connect(s_btn_back, "button-press-event", G_CALLBACK(on_widget_button_press), NULL);
     gtk_box_pack_start(GTK_BOX(bottom_nav), s_btn_back, TRUE, TRUE, 0);
@@ -2026,7 +2022,7 @@ gboolean window_init(gboolean start_visible) {
     gtk_widget_set_can_focus(s_btn_home, FALSE);
     gtk_style_context_add_class(gtk_widget_get_style_context(s_btn_home), "nav-button");
     GtkWidget *img_home = create_svg_image(s_svg_home_icon, 20, 20);
-    gtk_container_add(GTK_CONTAINER(s_btn_home), img_home);
+    add_nav_content(s_btn_home, img_home, "Home");
     g_signal_connect(s_btn_home, "clicked", G_CALLBACK(on_btn_home_clicked), NULL);
     g_signal_connect(s_btn_home, "button-press-event", G_CALLBACK(on_widget_button_press), NULL);
     gtk_box_pack_start(GTK_BOX(bottom_nav), s_btn_home, TRUE, TRUE, 0);
@@ -2038,7 +2034,7 @@ gboolean window_init(gboolean start_visible) {
     gtk_style_context_add_class(gtk_widget_get_style_context(s_btn_universal_refresh), "nav-refresh-btn");
     gtk_widget_set_tooltip_text(s_btn_universal_refresh, "Universal Refresh (Reset to New State)");
     GtkWidget *img_univ_refresh = create_svg_image(s_svg_universal_refresh_icon, 20, 20);
-    gtk_container_add(GTK_CONTAINER(s_btn_universal_refresh), img_univ_refresh);
+    add_nav_content(s_btn_universal_refresh, img_univ_refresh, "Reset");
     g_signal_connect(s_btn_universal_refresh, "clicked", G_CALLBACK(on_btn_universal_refresh_clicked), NULL);
     g_signal_connect(s_btn_universal_refresh, "button-press-event", G_CALLBACK(on_widget_button_press), NULL);
     gtk_box_pack_start(GTK_BOX(bottom_nav), s_btn_universal_refresh, TRUE, TRUE, 0);
@@ -2047,7 +2043,7 @@ gboolean window_init(gboolean start_visible) {
     s_btn_ghost = gtk_button_new();
     gtk_widget_set_can_focus(s_btn_ghost, FALSE);
     gtk_style_context_add_class(gtk_widget_get_style_context(s_btn_ghost), "nav-button");
-    gtk_widget_set_tooltip_text(s_btn_ghost, "Ghost Writer (type into active app)");
+    gtk_widget_set_tooltip_text(s_btn_ghost, "Open Ghost Typer");
 
     s_btn_ghost_stack = gtk_stack_new();
     gtk_stack_set_transition_type(GTK_STACK(s_btn_ghost_stack), GTK_STACK_TRANSITION_TYPE_CROSSFADE);
@@ -2063,7 +2059,7 @@ gboolean window_init(gboolean start_visible) {
     gtk_stack_add_named(GTK_STACK(s_btn_ghost_stack), img_ghost_done, "done");
     gtk_stack_add_named(GTK_STACK(s_btn_ghost_stack), img_ghost_failed, "failed");
 
-    gtk_container_add(GTK_CONTAINER(s_btn_ghost), s_btn_ghost_stack);
+    add_nav_content(s_btn_ghost, s_btn_ghost_stack, "Typer");
     gtk_stack_set_visible_child_name(GTK_STACK(s_btn_ghost_stack), "idle");
 
     g_signal_connect(s_btn_ghost, "clicked", G_CALLBACK(on_btn_ghost_clicked), NULL);
@@ -2089,45 +2085,12 @@ gboolean window_init(gboolean start_visible) {
     gtk_stack_add_named(GTK_STACK(s_snap_stack), img_snap_running, "snapping");
     gtk_stack_add_named(GTK_STACK(s_snap_stack), img_snap_done, "done");
 
-    gtk_container_add(GTK_CONTAINER(s_btn_snap), s_snap_stack);
+    add_nav_content(s_btn_snap, s_snap_stack, "Snap");
     gtk_stack_set_visible_child_name(GTK_STACK(s_snap_stack), "camera");
 
     g_signal_connect(s_btn_snap, "clicked", G_CALLBACK(on_btn_snap_clicked), NULL);
     g_signal_connect(s_btn_snap, "button-press-event", G_CALLBACK(on_widget_button_press), NULL);
     gtk_box_pack_start(GTK_BOX(bottom_nav), s_btn_snap, TRUE, TRUE, 0);
-
-    /* Bottom Home Indicator Row with Corner Resize Grip */
-    GtkWidget *home_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
-    gtk_style_context_add_class(gtk_widget_get_style_context(home_row), "home-pill-box");
-
-    GtkWidget *home_left_spacer = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
-    gtk_widget_set_size_request(home_left_spacer, 24, -1);
-    gtk_box_pack_start(GTK_BOX(home_row), home_left_spacer, FALSE, FALSE, 0);
-
-    GtkWidget *home_pill = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
-    gtk_style_context_add_class(gtk_widget_get_style_context(home_pill), "home-pill");
-    gtk_widget_set_halign(home_pill, GTK_ALIGN_CENTER);
-
-    GtkWidget *home_pill_eb = gtk_event_box_new();
-    gtk_event_box_set_visible_window(GTK_EVENT_BOX(home_pill_eb), FALSE);
-    gtk_container_add(GTK_CONTAINER(home_pill_eb), home_pill);
-    g_signal_connect(home_pill_eb, "button-press-event", G_CALLBACK(on_widget_button_press), NULL);
-    g_signal_connect_swapped(home_pill_eb, "button-press-event", G_CALLBACK(overlay_go_home), NULL);
-    gtk_box_pack_start(GTK_BOX(home_row), home_pill_eb, TRUE, TRUE, 0);
-
-    /* Corner Resize Grip at bottom right */
-    GtkWidget *resize_grip = create_svg_image(s_svg_resize_grip, 14, 14);
-    GtkWidget *resize_eb = gtk_event_box_new();
-    gtk_event_box_set_visible_window(GTK_EVENT_BOX(resize_eb), FALSE);
-    gtk_widget_set_tooltip_text(resize_eb, "Drag to Resize");
-    gtk_style_context_add_class(gtk_widget_get_style_context(resize_eb), "resize-grip");
-    gtk_container_add(GTK_CONTAINER(resize_eb), resize_grip);
-    g_signal_connect(resize_eb, "button-press-event", G_CALLBACK(on_resize_grip_press), NULL);
-    g_signal_connect(resize_eb, "button-release-event", G_CALLBACK(on_resize_grip_release), NULL);
-    g_signal_connect(resize_eb, "motion-notify-event", G_CALLBACK(on_resize_grip_motion), NULL);
-    gtk_box_pack_end(GTK_BOX(home_row), resize_eb, FALSE, FALSE, 6);
-
-    gtk_box_pack_start(GTK_BOX(s_root_box), home_row, FALSE, FALSE, 0);
 
     /* Click and motion listeners on main window for edge resizing */
     gtk_widget_add_events(s_window, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK |
@@ -2204,6 +2167,7 @@ void overlay_show(void) {
     gtk_widget_show_all(s_window);
     gtk_widget_realize(s_window);
 
+    gtk_window_move(GTK_WINDOW(s_window), s_pos_x, s_pos_y);
     Display *xdpy = gdk_x11_display_get_xdisplay(gdk_display_get_default());
     XMoveResizeWindow(xdpy, s_xid, s_pos_x, s_pos_y, s_win_width, s_win_height);
     XMapRaised(xdpy, s_xid);
@@ -2211,6 +2175,10 @@ void overlay_show(void) {
 
     s_visible = TRUE;
     xutil_log("WINDOW", "Overlay shown (mapped raised at (%d, %d))", s_pos_x, s_pos_y);
+
+    if (s_clock_timer_id == 0) {
+        s_clock_timer_id = g_timeout_add_seconds(1, on_clock_tick, NULL);
+    }
 
     browser_resume();
     overlay_update_status_ui();
@@ -2225,6 +2193,11 @@ void overlay_hide(void) {
     input_notify_overlay_hidden();
     browser_pause();
 
+    if (s_clock_timer_id > 0) {
+        g_source_remove(s_clock_timer_id);
+        s_clock_timer_id = 0;
+    }
+
     gtk_widget_hide(s_window);
     s_visible = FALSE;
     xutil_log("WINDOW", "Overlay hidden");
@@ -2236,6 +2209,7 @@ void overlay_reposition(void) {
     s_user_moved = FALSE;
     calculate_monitor_position(&s_pos_x, &s_pos_y);
 
+    gtk_window_move(GTK_WINDOW(s_window), s_pos_x, s_pos_y);
     Display *xdpy = gdk_x11_display_get_xdisplay(gdk_display_get_default());
     XMoveResizeWindow(xdpy, s_xid, s_pos_x, s_pos_y, s_win_width, s_win_height);
     XFlush(xdpy);
@@ -2364,7 +2338,12 @@ GtkWidget *overlay_get_url_entry(void) {
 
 const char *overlay_get_test_entry_text(void) {
     if (!s_test_entry) return "";
-    return gtk_entry_get_text(GTK_ENTRY(s_test_entry));
+    GtkTextIter start, end;
+    GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(s_test_entry));
+    gtk_text_buffer_get_bounds(buffer, &start, &end);
+    g_free(s_ghost_text_cache);
+    s_ghost_text_cache = gtk_text_buffer_get_text(buffer, &start, &end, TRUE);
+    return s_ghost_text_cache;
 }
 
 const char *overlay_get_entry_text(void) {
@@ -2373,28 +2352,40 @@ const char *overlay_get_entry_text(void) {
             return gtk_entry_get_text(GTK_ENTRY(s_url_entry));
         }
         if (s_test_entry && gtk_widget_has_focus(s_test_entry)) {
-            return gtk_entry_get_text(GTK_ENTRY(s_test_entry));
+            return overlay_get_test_entry_text();
         }
         if (s_url_entry) {
             return gtk_entry_get_text(GTK_ENTRY(s_url_entry));
         }
     }
     if (!s_test_entry) return "";
-    return gtk_entry_get_text(GTK_ENTRY(s_test_entry));
+    return overlay_get_test_entry_text();
 }
 
 void overlay_clear_entry_text(void) {
     if (s_test_entry) {
-        gtk_entry_set_text(GTK_ENTRY(s_test_entry), "");
+        gtk_text_buffer_set_text(gtk_text_view_get_buffer(GTK_TEXT_VIEW(s_test_entry)), "", -1);
         overlay_update_status_ui();
     }
 }
 
 void overlay_set_entry_text(const char *text) {
     if (s_test_entry && text) {
-        gtk_entry_set_text(GTK_ENTRY(s_test_entry), text);
+        gtk_text_buffer_set_text(gtk_text_view_get_buffer(GTK_TEXT_VIEW(s_test_entry)), text, -1);
         overlay_update_status_ui();
     }
+}
+
+static char *get_user_runtime_snap_path(void) {
+    const char *rdir = g_get_user_runtime_dir();
+    if (!rdir || rdir[0] == '\0') {
+        rdir = g_get_user_data_dir();
+    }
+    char *cronq_dir = g_build_filename(rdir, "cronq", NULL);
+    g_mkdir_with_parents(cronq_dir, 0700);
+    char *snap_path = g_build_filename(cronq_dir, "latest_snap.png", NULL);
+    g_free(cronq_dir);
+    return snap_path;
 }
 
 static void save_and_prune_snap(GdkPixbuf *pb, const AppConfig *cfg) {
@@ -2432,7 +2423,27 @@ static void save_and_prune_snap(GdkPixbuf *pb, const AppConfig *cfg) {
     GError *err = NULL;
     if (gdk_pixbuf_save(pb, filepath, "png", &err, "compression", "9", NULL)) {
         xutil_log("WINDOW", "Saved screenshot to %s", filepath);
-        unlink("/tmp/cronq_latest_snap.png");
+
+        /* 1. Secure primary link in user runtime directory */
+        char *user_snap = get_user_runtime_snap_path();
+        unlink(user_snap);
+        if (symlink(filepath, user_snap) != 0) {
+            gchar *data = NULL;
+            gsize len = 0;
+            if (g_file_get_contents(filepath, &data, &len, NULL)) {
+                g_file_set_contents(user_snap, data, len, NULL);
+                g_free(data);
+            }
+        }
+        g_free(user_snap);
+
+        /* 2. Backward-compatible link to /tmp with UID safety check */
+        struct stat st;
+        if (lstat("/tmp/cronq_latest_snap.png", &st) == 0) {
+            if (st.st_uid == getuid()) {
+                unlink("/tmp/cronq_latest_snap.png");
+            }
+        }
         if (symlink(filepath, "/tmp/cronq_latest_snap.png") != 0) {
             gchar *data = NULL;
             gsize len = 0;
@@ -2606,6 +2617,9 @@ void overlay_snap(void) {
 }
 
 void window_cleanup(void) {
+    if (s_ghost_countdown) { g_source_remove(s_ghost_countdown); s_ghost_countdown = 0; }
+    ghost_writer_cancel();
+    g_clear_pointer(&s_ghost_text_cache, g_free);
     if (s_clock_timer_id > 0) {
         g_source_remove(s_clock_timer_id);
         s_clock_timer_id = 0;

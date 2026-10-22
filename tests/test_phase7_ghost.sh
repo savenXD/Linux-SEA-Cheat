@@ -62,7 +62,7 @@ if ! grep -q "Ghost Writer subsystem initialized on dedicated Display (XTEST" "$
     echo -e "${RED}C1 FAIL: Ghost Writer XTEST subsystem not initialized in log!${NC}"
     exit 1
 fi
-if ! grep -q "Alt+x/g/a/s/f/d/m/w" "$LOG_FILE"; then
+if ! grep -qE "Alt\+x/.*w" "$LOG_FILE"; then
     echo -e "${RED}C1 FAIL: Hotkey 'w' not registered in log!${NC}"
     exit 1
 fi
@@ -164,7 +164,9 @@ xdotool mousemove 500 300 click 1
 sleep 0.5
 
 PRE_BTN_FOCUS=$(xdotool getwindowfocus)
-# Tap Ghost Writer button (x=237, y=1033)
+# Tap Ghost Writer button (x=237, y=1033) - 1st tap reveals input, 2nd tap executes typing
+xdotool mousemove 237 1033 click 1
+sleep 0.3
 xdotool mousemove 237 1033 click 1
 sleep 1.2
 

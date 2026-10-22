@@ -59,11 +59,18 @@ install: $(TARGET)
 uninstall:
 	@pkill -9 -f cronq-supervisor 2>/dev/null || true
 	@pkill -9 -f cronq 2>/dev/null || true
+	@pkill -9 -f phoneoverlay-supervisor 2>/dev/null || true
+	@pkill -9 -f phoneoverlay 2>/dev/null || true
 	rm -f $(HOME)/.local/bin/cronq
 	rm -f $(HOME)/.local/bin/cronq-supervisor
 	rm -f $(HOME)/.local/bin/cronq-superisor
+	rm -f $(HOME)/.local/bin/phoneoverlay
+	rm -f $(HOME)/.local/bin/phoneoverlay-supervisor
+	rm -f $(HOME)/.local/bin/phone-overlay
 	rm -f $(HOME)/.config/autostart/cronq.desktop
+	rm -f $(HOME)/.config/autostart/phoneoverlay.desktop
 	rm -f $(HOME)/.local/share/applications/cronq.desktop
+	rm -f $(HOME)/.local/share/applications/phoneoverlay.desktop
 	rm -f $(HOME)/.local/share/icons/hicolor/scalable/apps/cronq.svg
 	@which update-desktop-database >/dev/null 2>&1 && update-desktop-database $(HOME)/.local/share/applications 2>/dev/null || true
 	@which gtk-update-icon-cache >/dev/null 2>&1 && gtk-update-icon-cache -f -t $(HOME)/.local/share/icons/hicolor 2>/dev/null || true

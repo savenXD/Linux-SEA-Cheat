@@ -7,6 +7,7 @@
 #include "ghost.h"
 #include "xutil.h"
 
+#include <X11/Xlib.h>
 #include <gtk/gtk.h>
 #include <glib-unix.h>
 #include <sys/socket.h>
@@ -88,9 +89,15 @@ static gboolean on_ipc_client_connected(GIOChannel *source, GIOCondition conditi
 
     size_t buf_cap = 131072;
     char *buf = g_malloc0(buf_cap);
-    ssize_t n = read(client_fd, buf, buf_cap - 1);
-    if (n > 0) {
-        buf[n] = '\0';
+    size_t total = 0;
+    while (total + 1 < buf_cap) {
+        ssize_t n = read(client_fd, buf + total, buf_cap - 1 - total);
+        if (n <= 0) break;
+        total += n;
+        if (buf[total - 1] == '\n') break;
+    }
+    if (total > 0) {
+        buf[total] = '\0';
         char *line = g_strstrip(buf);
         xutil_log("IPC", "Received command: '%.64s%s'", line, strlen(line) > 64 ? "..." : "");
 
@@ -635,6 +642,9 @@ int main(int argc, char **argv) {
     }
 
     xutil_log("MAIN", "=== Starting Cronq ===");
+
+    /* 0. Initialize Xlib multi-threading support for multiple Display connections */
+    XInitThreads();
 
     /* 1. Install non-fatal X error handlers */
     xutil_install_error_handlers();

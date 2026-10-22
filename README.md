@@ -57,7 +57,10 @@ Here is what you can do with it:
 - **Resize Freely**: Drag the bottom-right handle `[⤡]` to resize it to any width and height, or press `Alt + F` to go full screen.
 - **Adjust Opacity**: Make it semi-transparent so you can see your code or work through it (`Alt + A` to decrease, `Alt + S` to increase).
 - **Ghost Mode (Click-Through)**: Turn on Ghost mode (`Alt + G`) to make the overlay completely click-through. Mouse clicks pass straight through to whatever window is behind it.
-- **On-Demand Ghost Typer**: Click the Ghost button on the bottom nav to reveal a sleek floating input box. Type or paste text, press <kbd>Enter</kbd>, and watch it type directly into the window beneath. Click it again when empty to dismiss.
+- **Ghost Typer**: The Ghost footer button opens a page with a boxed editor that grows with your text (up to a cap). Type or paste text or code, pick **Slow**, **Moderate** or **Fast**, then click **Start**. A three-second countdown gives you time to click the destination field. **Stop** cancels immediately. Settings scroll above the pinned Start button. Footer clicks and Enter in the editor never start typing.
+- **Human-like**: On by default, Slow (~40 WPM). Moderate is ~105 WPM (a good typist) and Fast ~140 WPM (a fast typist, with occasional quicker bursts). Pauses, hesitations and thinking delays stay the same length in every mode. Human mode uses log-normal gaps between keys, slower pauses after spaces, punctuation and newlines, slow speed drift, rare hesitations, a 40–170 ms key hold, a modifier lead-in for capitals and symbols, and a short pause every 3–6 lines. Turning Human-like off hides the speed buttons and types instantly in small batches (thousands of characters per second without freezing the window); that pattern is easy to detect. Settings save when changed.
+- **Extra safe**: A switch under Human-like (off by default; hidden when Human-like is off). Works with Slow, Moderate and Fast: about 10% slower, occasional adjacent-key typos on lowercase letters that are noticed after 0–2 more letters, backspaced and retyped (about 3% of letters, never twice within 6 letters), and random thinking pauses after some words, sentences, commas and line breaks. The final text is always exactly what you entered.
+- **Code and formatting**: Line breaks, blank lines, tabs, spaces, and Unicode text remain in the editor. Trailing line breaks are omitted from the typing output to prevent an accidental final Enter; internal line breaks are preserved. **Keep line breaks & tabs** is enabled by default; disable the destination editor’s automatic indentation when typing code to avoid extra indentation. Destination applications still interpret Return and Tab according to their own behavior. Typing stops if the destination loses focus. Timing variation does not guarantee that an application will treat the input as manual typing.
 - **Universal Reset / Refresh**: Tap the reload button `🔄` in the bottom bar to instantly return the overlay to its pristine home state without logging out your accounts or clearing saved cookies.
 - **Built-in ChatGPT & Mobile Web**: Switch instantly between your custom home screen, clean Chrome mobile web, and ChatGPT. All cookies, logins, and sessions are safely saved.
 - **Instant Clean Screenshots**: Press `Alt + P` to take a screenshot. The overlay hides for a millisecond, captures the clean screen underneath, saves it to `~/Pictures/cronq/`, and copies it to your clipboard.
@@ -131,7 +134,7 @@ All shortcuts use the **<kbd>Alt</kbd>** key globally from anywhere on your syst
   - `🏠` Home Page
   - `🌐` Chrome Mobile Browser
   - `🤖` ChatGPT Web App
-  - `👻` Toggle Ghost Typer Input Box
+  - `👻` Open Ghost Typer
   - `🔄` Universal Refresh / Reset to clean state
 
 ---
@@ -278,3 +281,7 @@ You can reload configuration changes on the fly without restarting:
 cronq --reload-config
 ```
 
+
+### Ghost Type page regression test
+
+Run `bash tests/test_ghost_page.sh` in a dedicated X11 test display (for example, `DISPLAY=:91 bash tests/test_ghost_page.sh` inside Xephyr). It uses a temporary configuration and an isolated target window to check navigation, multiline text, slider/switch behavior, key hold and gap timing, phone layout, countdown, exact keystrokes, chunk pauses, cancellation, and focus changes. It does not start the normal app daemon.

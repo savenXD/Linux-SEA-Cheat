@@ -367,22 +367,19 @@ void input_handle_raw_button(int button, bool is_press, int root_x, int root_y) 
 }
 
 static GdkModifierType get_current_modifiers(void) {
-    Display *xdpy = gdk_x11_display_get_xdisplay(gdk_display_get_default());
-    Window root = DefaultRootWindow(xdpy);
-    Window root_ret, child_ret;
-    int rx, ry, wx, wy;
-    unsigned int mask = 0;
-
-    XQueryPointer(xdpy, root, &root_ret, &child_ret, &rx, &ry, &wx, &wy, &mask);
-
-    GdkModifierType state = 0;
-    if (mask & ShiftMask)   state |= GDK_SHIFT_MASK;
-    if (mask & LockMask)    state |= GDK_LOCK_MASK;
-    if (mask & ControlMask) state |= GDK_CONTROL_MASK;
-    if (mask & Mod1Mask)    state |= GDK_MOD1_MASK;
-    if (mask & Mod2Mask)    state |= GDK_MOD2_MASK;
-    if (mask & Mod5Mask)    state |= GDK_MOD5_MASK;
-
+    GdkModifierType state = hotkey_get_active_modifiers();
+    GdkDisplay *display = gdk_display_get_default();
+    if (display) {
+        GdkKeymap *km = gdk_keymap_get_for_display(display);
+        if (km) {
+            if (gdk_keymap_get_caps_lock_state(km)) {
+                state |= GDK_LOCK_MASK;
+            }
+            if (gdk_keymap_get_num_lock_state(km)) {
+                state |= GDK_MOD2_MASK;
+            }
+        }
+    }
     return state;
 }
 
@@ -401,7 +398,7 @@ void input_handle_raw_key(int keycode, bool is_press) {
     GtkWidget *win = overlay_get_window_widget();
     if (win) {
         GtkWidget *f = gtk_window_get_focus(GTK_WINDOW(win));
-        if (f && (GTK_IS_EDITABLE(f) || WEBKIT_IS_WEB_VIEW(f))) {
+        if (f && (GTK_IS_EDITABLE(f) || GTK_IS_TEXT_VIEW(f) || WEBKIT_IS_WEB_VIEW(f))) {
             target = f;
         }
     }
